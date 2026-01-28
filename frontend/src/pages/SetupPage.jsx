@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import {
     User, Lock, Mail, AlertCircle, ArrowRight, ArrowLeft,
     Settings, Server, Cpu, Globe, CheckCircle2, Loader2, Search,
-    Download, ExternalLink, Copy
+    Download, ExternalLink, Copy, Terminal
 } from 'lucide-react';
 import './LoginPage.css';
 import './SetupPage.css';

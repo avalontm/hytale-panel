@@ -187,6 +187,41 @@ class InstallerService {
         // Check if binary exists
         try {
             await fs.access(binPath);
+            // Ensure executable permissions on Linux/Mac
+            if (process.platform !== 'win32') {
+                console.log(`[INSTALLER] Checking permissions for ${binPath}`);
+
+                try {
+                    // Method 1: fs.chmod (native)
+                    await fs.chmod(binPath, 0o755);
+                    console.log('[INSTALLER] fs.chmod(755) successful');
+                } catch (e) {
+                    console.log('[INSTALLER] fs.chmod failed:', e.message);
+
+                    try {
+                        // Method 2: shell chmod
+                        const { exec } = await import('child_process');
+                        const { promisify } = await import('util');
+                        const execAsync = promisify(exec);
+                        await execAsync(`chmod +x "${binPath}"`);
+                        console.log('[INSTALLER] shell chmod +x successful');
+                    } catch (e2) {
+                        console.error('[INSTALLER] All chmod attempts failed:', e2.message);
+                    }
+                }
+
+                // Verification
+                const stats = await fs.stat(binPath);
+                // Check X bit for user(100), group(010), or other(001)
+                const isExecutable = !!(stats.mode & 0o100) || !!(stats.mode & 0o010) || !!(stats.mode & 0o001);
+                console.log(`[INSTALLER] File mode: ${stats.mode.toString(8)}, Executable: ${isExecutable}`);
+
+                if (!isExecutable) {
+                    this.status.state = 'error';
+                    this.status.error = `Permission Error: Cannot execute downloader. Please run: chmod +x "${binPath}"`;
+                    return;
+                }
+            }
         } catch {
             this.status.state = 'error';
             this.status.error = `Downloader binary not found at ${binPath}. Please place the CLI tool in the backend/bin folder.`;

@@ -88,21 +88,81 @@ class SettingsService {
             const { exec } = await import('child_process');
             const { promisify } = await import('util');
             const execAsync = promisify(exec);
-            // java -version outputs to stderr
-            const { stdout, stderr } = await execAsync('java -version');
-            const output = (stdout + stderr).trim();
-            const lines = output.split(/\r?\n/);
-            const versionLine = lines.find(line =>
-                line.toLowerCase().includes('java version') ||
-                line.toLowerCase().includes('openjdk version')
-            );
+            // fs is already imported at the top level
 
-            if (versionLine) {
-                return versionLine.trim();
+            // Helper to parsing output
+            const parseOutput = (out) => {
+                const lines = out.split(/\r?\n/);
+                const versionLine = lines.find(line => {
+                    const l = line.toLowerCase();
+                    return l.includes('version') || l.includes('java') || l.includes('openjdk') || l.includes('jdk');
+                });
+                return versionLine ? versionLine.trim() : null;
+            };
+
+            // 1. Try direct 'java' command
+            try {
+                console.log('[DEBUG] Trying "java -version"...');
+                const { stdout, stderr } = await execAsync('java -version');
+                const output = (stdout + stderr).trim();
+                const version = parseOutput(output);
+                if (version) return version;
+            } catch (e) {
+                console.log('[DEBUG] "java -version" failed:', e.message);
             }
-            return output || 'Detected';
+
+            // 2. If Windows, we are done (or could check registry, but 'where java' usually works or it's not installed)
+            if (process.platform === 'win32') return 'Not Found';
+
+            // 3. Linux/Mac: Try common paths
+            console.log('[DEBUG] Searching common paths...');
+            const commonPaths = [
+                '/usr/bin/java',
+                '/usr/local/bin/java',
+                '/bin/java',
+                '/opt/java/bin/java',
+                '/opt/jdk-25/bin/java'
+            ];
+
+            // Add finds in /usr/lib/jvm
+            try {
+                const jvmDir = '/usr/lib/jvm';
+                const entries = await fs.readdir(jvmDir).catch(() => []);
+                for (const entry of entries) {
+                    commonPaths.push(path.join(jvmDir, entry, 'bin/java'));
+                }
+            } catch (e) { }
+
+            // Add finds in /opt (looking for jdk* or java*)
+            try {
+                const optDir = '/opt';
+                const entries = await fs.readdir(optDir).catch(() => []);
+                for (const entry of entries) {
+                    if (entry.toLowerCase().includes('jdk') || entry.toLowerCase().includes('java')) {
+                        commonPaths.push(path.join(optDir, entry, 'bin/java'));
+                    }
+                }
+            } catch (e) { }
+
+            for (const javaPath of commonPaths) {
+                try {
+                    await fs.access(javaPath); // Check if exists
+                    const { stdout, stderr } = await execAsync(`"${javaPath}" -version`);
+                    const output = (stdout + stderr).trim();
+                    const version = parseOutput(output);
+
+                    if (version) {
+                        console.log('[DEBUG] Found Java at:', javaPath);
+                        return version;
+                    }
+                } catch (e) {
+                    // Continue to next path
+                }
+            }
+
+            return 'Not Found';
         } catch (error) {
-            console.error('Java detection error:', error);
+            console.error('[DEBUG] Java detection critical error:', error);
             return 'Not Found';
         }
     }
