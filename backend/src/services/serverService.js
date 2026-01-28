@@ -55,7 +55,10 @@ class ServerService extends EventEmitter {
         }
       }
     } catch (e) {
-      // No pid file
+      if (e.code !== 'ENOENT') {
+        console.error('[ServerService] Failed to read PID file:', e.message);
+      }
+      // No pid file or error reading it
     }
   }
 
@@ -75,7 +78,8 @@ class ServerService extends EventEmitter {
       this.emit('statusChange', 'starting');
 
       const startCommand = settings.startCommand.split(' ');
-      const command = startCommand[0];
+      // Use configured java path if available and valid, otherwise fallback to the first part of startCommand
+      const command = (settings.javaPath && settings.javaPath.trim()) ? settings.javaPath.trim() : startCommand[0];
       const args = startCommand.slice(1);
 
       console.log(`[ServerService] Spawning: ${command} ${args.join(' ')}`);
@@ -87,11 +91,30 @@ class ServerService extends EventEmitter {
 
       this.startTime = Date.now();
 
-      try {
-        await fs.writeFile(path.resolve('data/server.pid'), this.process.pid.toString());
-      } catch (e) {
-        console.error('Failed to save PID file:', e);
+      if (this.process.pid) {
+        try {
+          await fs.writeFile(path.resolve('data/server.pid'), this.process.pid.toString());
+        } catch (e) {
+          console.error('[ServerService] CRITICAL: Failed to save PID file. Check permissions for data/ directory:', e.message);
+        }
+      } else {
+        console.error('[ServerService] Process spawned but no PID generated. This usually means the executable was not found.');
       }
+
+      this.process.on('error', (err) => {
+        console.error('[ServerService] Failed to start server process:', err.message);
+        let userMessage = 'Failed to start server: ' + err.message;
+
+        if (err.code === 'ENOENT') {
+          const msg = 'Could not find the "java" executable. Is Java installed and in your PATH?';
+          this.addLog('[Error] ' + msg);
+          userMessage = msg;
+        }
+
+        this.status = 'offline';
+        this.emit('statusChange', 'offline');
+        this.emit('startError', userMessage);
+      });
 
       const handleOutput = (data) => {
         const output = this.addLog(data);

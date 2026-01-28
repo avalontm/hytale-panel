@@ -50,11 +50,17 @@ export function setupSocketHandlers(io) {
       socket.emit('authRequest', data);
     };
 
+    // Listen for start errors
+    const startErrorHandler = (error) => {
+      socket.emit('startError', error);
+    };
+
     // Register listeners
     serverService.on('statusChange', statusHandler);
     serverService.on('console', consoleHandler);
     serverService.on('stats', statsHandler);
     serverService.on('authRequest', authRequestHandler);
+    serverService.on('startError', startErrorHandler);
 
     // Handle console commands from client
     socket.on('command', (command) => {
@@ -77,6 +83,7 @@ export function setupSocketHandlers(io) {
       serverService.off('console', consoleHandler);
       serverService.off('stats', statsHandler);
       serverService.off('authRequest', authRequestHandler);
+      serverService.off('startError', startErrorHandler);
     });
   });
 }

@@ -14,6 +14,7 @@ class SettingsService {
         this.defaultSettings = {
             os: process.platform === 'win32' ? 'windows' : (process.platform === 'darwin' ? 'macos' : 'linux'),
             serverPath: '',
+            javaPath: 'java',
             jarFile: 'HytaleServer.jar',
             assetsFile: 'Assets.zip',
             startCommand: 'java -XX:AOTCache=HytaleServer.aot -Xmx2G -Xms1G -jar HytaleServer.jar --assets Assets.zip',
@@ -75,11 +76,14 @@ class SettingsService {
             } catch { }
         }
 
+        const javaInfo = await this.checkJava();
+
         return {
             os: platform === 'win32' ? 'windows' : (platform === 'darwin' ? 'macos' : 'linux'),
             detectedPath: detectedPath,
             defaultPath: defaultPath,
-            javaVersion: await this.checkJava()
+            javaVersion: javaInfo.version,
+            javaPath: javaInfo.path
         };
     }
 
@@ -100,19 +104,28 @@ class SettingsService {
                 return versionLine ? versionLine.trim() : null;
             };
 
-            // 1. Try direct 'java' command
+            // 1. Try direct 'java' command (PATH)
             try {
+                // On Linux, 'which java' gives the path
+                let detectedPath = 'java';
+                if (process.platform !== 'win32') {
+                    try {
+                        const { stdout } = await execAsync('which java');
+                        if (stdout.trim()) detectedPath = stdout.trim();
+                    } catch { }
+                }
+
                 console.log('[DEBUG] Trying "java -version"...');
-                const { stdout, stderr } = await execAsync('java -version');
+                const { stdout, stderr } = await execAsync(`"${detectedPath}" -version`);
                 const output = (stdout + stderr).trim();
                 const version = parseOutput(output);
-                if (version) return version;
+                if (version) return { version, path: detectedPath };
             } catch (e) {
                 console.log('[DEBUG] "java -version" failed:', e.message);
             }
 
             // 2. If Windows, we are done (or could check registry, but 'where java' usually works or it's not installed)
-            if (process.platform === 'win32') return 'Not Found';
+            if (process.platform === 'win32') return { version: 'Not Found', path: '' };
 
             // 3. Linux/Mac: Try common paths
             console.log('[DEBUG] Searching common paths...');
@@ -121,7 +134,7 @@ class SettingsService {
                 '/usr/local/bin/java',
                 '/bin/java',
                 '/opt/java/bin/java',
-                '/opt/jdk-25/bin/java'
+                '/opt/jdk-25/bin/java' // Hytale recommended
             ];
 
             // Add finds in /usr/lib/jvm
@@ -153,17 +166,17 @@ class SettingsService {
 
                     if (version) {
                         console.log('[DEBUG] Found Java at:', javaPath);
-                        return version;
+                        return { version, path: javaPath };
                     }
                 } catch (e) {
                     // Continue to next path
                 }
             }
 
-            return 'Not Found';
+            return { version: 'Not Found', path: '' };
         } catch (error) {
             console.error('[DEBUG] Java detection critical error:', error);
-            return 'Not Found';
+            return { version: 'Not Found', path: '' };
         }
     }
 

@@ -24,6 +24,15 @@ router.post('/panel', async (req, res) => {
     }
 });
 
+router.get('/detect', async (req, res) => {
+    try {
+        const info = await settingsService.detectSystem();
+        res.json(info);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // --- Server Settings (config.json) ---
 
 router.get('/server', async (req, res) => {

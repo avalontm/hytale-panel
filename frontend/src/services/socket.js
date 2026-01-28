@@ -13,7 +13,14 @@ class SocketService {
       return;
     }
 
-    this.socket = io(SOCKET_URL);
+    const token = localStorage.getItem('token');
+
+    this.socket = io(SOCKET_URL, {
+      auth: {
+        token: token
+      },
+      transports: ['websocket', 'polling']
+    });
 
     this.socket.on('connect', () => {
       console.log('Socket connected');
@@ -42,7 +49,6 @@ class SocketService {
 
     this.socket.on(event, callback);
 
-    // Store callback for cleanup
     if (!this.listeners.has(event)) {
       this.listeners.set(event, []);
     }
@@ -54,7 +60,6 @@ class SocketService {
       this.socket.off(event, callback);
     }
 
-    // Remove from stored listeners
     if (this.listeners.has(event)) {
       const callbacks = this.listeners.get(event);
       const index = callbacks.indexOf(callback);

@@ -5,6 +5,7 @@ import '../../styles/global.css';
 function PanelSettingsForm() {
     const [settings, setSettings] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [detecting, setDetecting] = useState(false);
     const [error, setError] = useState(null);
     const [success, setSuccess] = useState(null);
 
@@ -23,19 +24,30 @@ function PanelSettingsForm() {
         }
     };
 
+    const handleAutoDetect = async () => {
+        setDetecting(true);
+        setError(null);
+        setSuccess(null);
+        try {
+            const info = await settingsApi.detectSystem();
+            setSettings(prev => ({
+                ...prev,
+                os: info.os,
+                javaPath: info.javaPath || prev.javaPath,
+                serverPath: info.detectedPath || prev.serverPath
+            }));
+            setSuccess('System detected! Review the updated fields below.');
+        } catch (err) {
+            setError('Detection failed: ' + err.message);
+        } finally {
+            setDetecting(false);
+        }
+    };
+
     const handleChange = (e) => {
         const { name, value } = e.target;
         setSettings(prev => ({ ...prev, [name]: value }));
     };
-
-    const handleOsChange = (e) => {
-        const newOs = e.target.value;
-        setSettings(prev => ({
-            ...prev,
-            os: newOs,
-            // Optional: Reset defaults if OS changes? For now just keep values but user can edit.
-        }));
-    }
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -44,7 +56,10 @@ function PanelSettingsForm() {
         try {
             // Compute the start command to ensure it matches the preview
             const aotPart = (settings.aotCacheFile || 'HytaleServer.aot') ? `-XX:AOTCache=${settings.aotCacheFile || 'HytaleServer.aot'} ` : '';
-            const startCommand = `java ${aotPart}-Xms${settings.minMemory} -Xmx${settings.maxMemory} -jar ${settings.jarFile} --assets ${settings.assetsFile}`;
+            // Use javaPath for preview if available, else 'java'
+            const javaCmd = (settings.javaPath && settings.javaPath.trim()) ? settings.javaPath.trim() : 'java';
+
+            const startCommand = `${javaCmd} ${aotPart}-Xms${settings.minMemory} -Xmx${settings.maxMemory} -jar ${settings.jarFile} --assets ${settings.assetsFile}`;
 
             const payload = {
                 ...settings,
@@ -63,7 +78,6 @@ function PanelSettingsForm() {
     };
 
     if (loading) return <div>Loading...</div>;
-    if (loading) return <div>Loading...</div>;
     if (error) return (
         <div className="card">
             <h2 className="card-title">Panel Configuration</h2>
@@ -75,9 +89,23 @@ function PanelSettingsForm() {
     );
     if (!settings) return <div>No settings available</div>;
 
+    // Use javaPath for preview if available
+    const javaCmdDisplay = (settings.javaPath && settings.javaPath.trim()) ? settings.javaPath.trim() : 'java';
+    const aotPartDisplay = (settings.aotCacheFile || 'HytaleServer.aot') ? `-XX:AOTCache=${settings.aotCacheFile || 'HytaleServer.aot'} ` : '';
+
     return (
         <div className="card">
-            <h2 className="card-title">Panel Configuration</h2>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                <h2 className="card-title" style={{ margin: 0 }}>Panel Configuration</h2>
+                <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={handleAutoDetect}
+                    disabled={detecting}
+                >
+                    {detecting ? 'Detecting...' : 'Auto Detect System'}
+                </button>
+            </div>
 
             {error && <div className="status-badge status-offline" style={{ marginBottom: '1rem', display: 'block' }}>{error}</div>}
             {success && <div className="status-badge status-online" style={{ marginBottom: '1rem', display: 'block' }}>{success}</div>}
@@ -85,16 +113,30 @@ function PanelSettingsForm() {
             <form onSubmit={handleSubmit}>
                 <div className="form-group">
                     <label>Operating System</label>
-                    <select
+                    <input
+                        type="text"
                         name="os"
                         value={settings.os}
-                        onChange={handleOsChange}
+                        readOnly
                         className="input-field"
-                    >
-                        <option value="windows">Windows</option>
-                        <option value="linux">Linux</option>
-                    </select>
-                    <small>Select the OS where the panel is running to adjust default behavior.</small>
+                        style={{ opacity: 0.7, cursor: 'not-allowed' }}
+                    />
+                    <small>Auto-detected from the backend environment.</small>
+                </div>
+
+                <div className="form-group">
+                    <label>Java Executable Path</label>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                        <input
+                            type="text"
+                            name="javaPath"
+                            value={settings.javaPath || ''}
+                            onChange={handleChange}
+                            className="input-field"
+                            placeholder="/usr/bin/java or java"
+                        />
+                    </div>
+                    <small>Absolute path to the Java executable. Required if 'java' is not in PATH (common on systemd services).</small>
                 </div>
 
                 <div className="form-group">
@@ -186,9 +228,10 @@ function PanelSettingsForm() {
                         borderRadius: '4px',
                         fontFamily: 'monospace',
                         color: 'var(--text-secondary)',
-                        fontSize: '13px'
+                        fontSize: '13px',
+                        wordBreak: 'break-all'
                     }}>
-                        java {(settings.aotCacheFile || 'HytaleServer.aot') ? `-XX:AOTCache=${settings.aotCacheFile || 'HytaleServer.aot'} ` : ''}-Xms{settings.minMemory} -Xmx{settings.maxMemory} -jar {settings.jarFile} --assets {settings.assetsFile}
+                        {javaCmdDisplay} {aotPartDisplay}-Xms{settings.minMemory} -Xmx{settings.maxMemory} -jar {settings.jarFile} --assets {settings.assetsFile}
                     </div>
                     <small>This command is generated automatically from your settings.</small>
                 </div>
@@ -201,7 +244,10 @@ function PanelSettingsForm() {
                         value={settings.port}
                         onChange={handleChange}
                         className="input-field"
+                        readOnly
+                        style={{ opacity: 0.7 }}
                     />
+                    <small>Port configuration is managed by environment variables.</small>
                 </div>
 
                 <button type="submit" className="btn btn-primary">Save Panel Settings</button>

@@ -5,6 +5,11 @@ export const getPanelSettings = async () => {
     return response.data;
 };
 
+export const detectSystem = async () => {
+    const response = await api.get('/settings/detect');
+    return response.data;
+};
+
 export const savePanelSettings = async (settings) => {
     const response = await api.post('/settings/panel', settings);
     return response.data;

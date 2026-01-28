@@ -50,6 +50,11 @@ class HytaleConfigService {
             }
             return JSON.parse(content);
         } catch (error) {
+            if (error.code === 'EACCES') {
+                console.error(`[ConfigService] Permission denied reading ${filename}.`);
+                if (filename === 'bans.json' || filename === 'whitelist.json') return [];
+                return {};
+            }
             if (error instanceof SyntaxError) {
                 throw new Error(`File ${filename} contains invalid JSON.`);
             }

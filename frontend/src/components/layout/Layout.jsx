@@ -8,9 +8,12 @@ import { useServerStatus } from '../../hooks/useServerStatus';
 import socketService from '../../services/socket';
 import './Layout.css';
 
+import { useDialog } from '../../contexts/DialogContext';
+
 function Layout() {
   const { status, stats } = useServerStatus();
   const [authData, setAuthData] = useState(null);
+  const { showAlert } = useDialog();
 
   useEffect(() => {
     const handleAuthRequest = (data) => {
@@ -18,9 +21,19 @@ function Layout() {
       setAuthData(data);
     };
 
+    const handleStartError = (message) => {
+      console.log('[Layout] Server start error:', message);
+      showAlert(message, 'Server Error');
+    };
+
     socketService.on('authRequest', handleAuthRequest);
-    return () => socketService.off('authRequest', handleAuthRequest);
-  }, []);
+    socketService.on('startError', handleStartError);
+
+    return () => {
+      socketService.off('authRequest', handleAuthRequest);
+      socketService.off('startError', handleStartError);
+    };
+  }, [showAlert]);
 
   return (
     <div className="layout-root">

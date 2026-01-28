@@ -26,8 +26,16 @@ class UserService {
         } catch (error) {
             if (error.code === 'ENOENT' || error instanceof SyntaxError) {
                 // If file doesn't exist or is invalid JSON, reset to empty
-                await this.ensureDataDir();
-                await fs.writeFile(USERS_FILE, JSON.stringify([], null, 2));
+                try {
+                    await this.ensureDataDir();
+                    await fs.writeFile(USERS_FILE, JSON.stringify([], null, 2));
+                } catch (e) {
+                    console.error('[UserService] Failed to initialize users file:', e.message);
+                }
+                return [];
+            }
+            if (error.code === 'EACCES') {
+                console.error('[UserService] CRITICAL: Permission denied accessing users.json. Run "chown" fix.');
                 return [];
             }
             throw error;

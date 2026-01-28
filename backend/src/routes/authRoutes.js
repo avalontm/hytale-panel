@@ -38,7 +38,14 @@ router.post('/login', async (req, res) => {
         const result = await authService.login(user, password);
         res.json(result);
     } catch (error) {
-        res.status(401).json({ error: error.message });
+        console.error('Login Error:', error);
+        // Return generic error to client to hide system paths
+        // unless it's a specific auth error we want to show
+        if (error.message.includes('Invalid') || error.message.includes('required')) {
+            res.status(401).json({ error: error.message });
+        } else {
+            res.status(500).json({ error: 'An internal error occurred. Please check server console.' });
+        }
     }
 });
 
