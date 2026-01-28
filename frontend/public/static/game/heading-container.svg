@@ -1,0 +1,29 @@
+<svg
+ xmlns="http://www.w3.org/2000/svg"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ width="728px" height="122px">
+<defs>
+<filter filterUnits="userSpaceOnUse" id="Filter_0" x="0px" y="0px" width="728px" height="122px"  >
+    <feOffset in="SourceAlpha" dx="0" dy="0" />
+    <feGaussianBlur result="blurOut" stdDeviation="2" />
+    <feFlood flood-color="rgb(0, 0, 0)" result="floodOut" />
+    <feComposite operator="atop" in="floodOut" in2="blurOut" />
+    <feComponentTransfer><feFuncA type="linear" slope="0.48"/></feComponentTransfer>
+    <feMerge>
+    <feMergeNode/>
+    <feMergeNode in="SourceGraphic"/>
+  </feMerge>
+</filter>
+<linearGradient id="PSgrad_0" x1="0%" x2="0%" y1="100%" y2="0%">
+  <stop offset="0%" stop-color="rgb(144,165,178)" stop-opacity="1" />
+  <stop offset="100%" stop-color="rgb(201,211,218)" stop-opacity="1" />
+</linearGradient>
+
+</defs>
+<g filter="url(#Filter_0)">
+<path fill-rule="evenodd"  fill="rgb(115, 142, 159)"
+ d="M722.339,60.988 L723.996,62.664 L706.680,89.406 L696.715,89.406 L702.409,96.741 L689.408,117.989 L625.695,117.989 L623.628,112.448 L617.729,117.989 L38.586,117.989 L24.365,94.284 L30.060,90.635 L21.313,89.406 L3.997,62.664 L5.654,60.994 L3.997,59.317 L21.313,32.576 L31.278,32.576 L25.586,25.241 L38.586,3.993 L102.297,3.993 L104.364,9.540 L110.264,3.993 L689.408,3.993 L703.627,27.698 L697.935,31.347 L706.680,32.576 L723.996,59.317 L722.339,60.988 Z"/>
+</g>
+<path fill="url(#PSgrad_0)"
+ d="M722.339,60.988 L723.996,62.664 L706.680,89.406 L696.715,89.406 L702.409,96.741 L689.408,117.989 L625.695,117.989 L623.628,112.448 L617.729,117.989 L38.586,117.989 L24.365,94.284 L30.060,90.635 L21.313,89.406 L3.997,62.664 L5.654,60.994 L3.997,59.317 L21.313,32.576 L31.278,32.576 L25.586,25.241 L38.586,3.993 L102.297,3.993 L104.364,9.540 L110.264,3.993 L689.408,3.993 L703.627,27.698 L697.935,31.347 L706.680,32.576 L723.996,59.317 L722.339,60.988 Z"/>
+</svg>

@@ -1,0 +1,141 @@
+.auth-dialog {
+    max-width: 500px;
+    width: 100%;
+    animation: modalIn 0.3s ease-out;
+}
+
+.auth-dialog-header {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.auth-logo {
+    max-width: 120px;
+    margin-bottom: 20px;
+}
+
+.auth-dialog-header h2 {
+    font-size: 24px;
+    margin: 0 0 8px 0;
+    color: var(--text-primary);
+}
+
+.auth-dialog-header p {
+    color: var(--text-muted);
+    font-size: 14px;
+    margin: 0;
+}
+
+.auth-content {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.auth-code-box {
+    background: var(--bg-tertiary);
+    padding: 20px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-color);
+}
+
+.auth-code-box label {
+    display: block;
+    margin-bottom: 10px;
+    font-size: 12px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.code-display {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 15px;
+    background: #000;
+    padding: 15px;
+    border-radius: var(--radius-sm);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 24px;
+    color: var(--accent-blue);
+    letter-spacing: 2px;
+}
+
+.copy-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: color 0.2s ease;
+    padding: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.copy-btn:hover:not(:disabled) {
+    color: var(--accent-blue);
+}
+
+.copy-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.3;
+}
+
+.auth-instructions {
+    color: var(--text-secondary);
+    font-size: 14px;
+}
+
+.auth-instructions ol {
+    padding-left: 20px;
+    margin: 0;
+    line-height: 1.8;
+}
+
+.auth-instructions li {
+    margin-bottom: 8px;
+}
+
+.auth-link {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+}
+
+.auth-success {
+    text-align: center;
+    padding: 40px 20px;
+}
+
+.success-icon {
+    color: var(--accent-green);
+    margin-bottom: 20px;
+}
+
+.auth-success h3 {
+    font-size: 20px;
+    margin: 0 0 10px 0;
+    color: var(--text-primary);
+}
+
+.auth-success p {
+    color: var(--text-muted);
+    font-size: 14px;
+    margin: 0;
+}
+
+@keyframes modalIn {
+    from {
+        transform: scale(0.95);
+        opacity: 0;
+    }
+
+    to {
+        transform: scale(1);
+        opacity: 1;
+    }
+}

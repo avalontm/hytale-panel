@@ -1,0 +1,87 @@
+.console-page {
+  width: 100%;
+  max-width: 100%;
+  height: calc(100vh - var(--header-height) - 48px);
+  display: flex;
+  flex-direction: column;
+}
+
+.console-header {
+  margin-bottom: 24px;
+}
+
+.console-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.console-output {
+  flex: 1;
+  padding: 16px;
+  overflow-y: auto;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  background-color: #0a0a0a;
+  color: #e0e0e0;
+}
+
+.console-line {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  margin-bottom: 2px;
+}
+
+.console-input-form {
+  border-top: 1px solid var(--border-color);
+  padding: 12px;
+  background-color: var(--bg-tertiary);
+}
+
+.input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.input-prefix {
+  color: var(--accent-green);
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.console-input {
+  flex: 1;
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 13px;
+  padding: 8px 12px;
+  border-radius: 4px;
+}
+
+.console-input:focus {
+  outline: none;
+  border-color: var(--accent-green);
+}
+
+.send-btn {
+  padding: 8px 16px;
+}
+
+@media (max-width: 768px) {
+  .console-output {
+    font-size: 12px;
+  }
+
+  .console-input {
+    font-size: 12px;
+  }
+}

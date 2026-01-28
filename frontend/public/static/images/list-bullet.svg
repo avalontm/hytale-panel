@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 30 30">
+  <defs>
+    <style>
+      .cls-1 {
+        fill: #907238;
+        fill-rule: evenodd;
+      }
+    </style>
+  </defs>
+  <path id="Forme_535_copie_2" data-name="Forme 535 copie 2" class="cls-1" d="M2620.2,12961.2l-11.19,11.2-0.2-.2h0l-6.43-6.4,0.02-.1-1.53-1.5,8.17-8.1,2.63,2.6-5.67,5.6,3.01,3.1,8.67-8.7-8.68-8.7-15,15,15,15,15-15Z" transform="translate(-2594 -12950)"/>
+</svg>

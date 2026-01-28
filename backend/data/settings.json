@@ -1,0 +1,15 @@
+{
+  "os": "windows",
+  "serverPath": "C:\\Users\\AvalonTM\\hytale_server",
+  "jarFile": "HytaleServer.jar",
+  "assetsFile": "Assets.zip",
+  "startCommand": "java -XX:AOTCache=HytaleServer.aot -Xms1G -Xmx2G -jar HytaleServer.jar --assets Assets.zip",
+  "maxMemory": "2G",
+  "minMemory": "1G",
+  "port": 5520,
+  "modProviders": {
+    "curseforge": {
+      "apiKey": "$2a$10$02gw91MczijiDhXjqZqKV.xXty6GDhnVRn5/nqmbHZYpkELpeFQXG"
+    }
+  }
+}

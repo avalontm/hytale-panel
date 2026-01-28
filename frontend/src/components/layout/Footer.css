@@ -1,0 +1,65 @@
+.footer {
+  width: 100%;
+  padding: 30px 0;
+  margin-top: auto;
+  background-color: var(--bg-primary);
+  /* Unified background: Sidebar color on left, Hytale art on right */
+  background-image:
+    linear-gradient(to right, var(--bg-secondary) 0, var(--bg-secondary) var(--sidebar-width), transparent var(--sidebar-width)),
+    linear-gradient(to bottom, rgba(11, 18, 29, 0.8) 0%, rgba(0, 0, 0, 0.95) 100%),
+    url('/static/images/backgrounds/footer.jpg');
+  background-size: auto 100%, cover, cover;
+  background-position: left center, center, center;
+  background-repeat: no-repeat;
+  border-top: 1px solid var(--border-color);
+  position: relative;
+  box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.5);
+}
+
+.footer-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+}
+
+.footer p {
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  margin: 0;
+}
+
+.footer a {
+  color: var(--accent-green);
+  text-decoration: none;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.footer a:hover {
+  color: #fff;
+  text-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
+}
+
+.footer-date {
+  font-size: 0.8rem !important;
+  opacity: 0.6;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+/* Subtle animation for the background */
+@keyframes backgroundScroll {
+  from {
+    background-position: center 0%;
+  }
+
+  to {
+    background-position: center 100%;
+  }
+}

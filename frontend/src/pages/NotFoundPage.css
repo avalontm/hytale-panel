@@ -1,0 +1,145 @@
+.not-found-page {
+    min-height: 100vh;
+    background-color: #0b0f13;
+    /* Use the correct Hytale background image */
+    background-image:
+        radial-gradient(circle at center, transparent 0%, rgba(11, 15, 19, 0.5) 100%),
+        linear-gradient(rgba(11, 15, 19, 0.4), rgba(11, 15, 19, 0.8)),
+        url('/static/images/backgrounds/content-upper-new-1920.jpg');
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-family: 'Outfit', sans-serif;
+    overflow-x: hidden;
+}
+
+/* Remove the sidebar bar from the footer in the 404 page */
+.not-found-footer-wrapper .footer {
+    background-image:
+        linear-gradient(to bottom, rgba(11, 18, 29, 0.8) 0%, rgba(0, 0, 0, 0.95) 100%),
+        url('/static/images/backgrounds/footer.jpg');
+    background-position: center;
+    background-size: cover;
+}
+
+/* Remove the green hover border */
+.not-found-footer-wrapper .footer:hover {
+    border-top-color: var(--border-color);
+}
+
+.not-found-content {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    max-width: 1100px;
+    width: 100%;
+    gap: 4rem;
+    flex-wrap: wrap;
+    flex: 1;
+    padding: 3rem 2rem;
+    animation: contentEntry 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes contentEntry {
+    from {
+        opacity: 0;
+        transform: scale(0.95) translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+.error-text-container {
+    flex: 1;
+    min-width: 300px;
+}
+
+.error-title {
+    font-size: 4rem;
+    font-weight: 800;
+    margin: 0;
+    color: #cbd5e1;
+    letter-spacing: 0.1em;
+}
+
+.error-divider {
+    width: 100%;
+    height: 2px;
+    background: linear-gradient(90deg, #d97706 0%, transparent 100%);
+    margin: 1.5rem 0;
+}
+
+.error-message {
+    font-size: 1.1rem;
+    line-height: 1.6;
+    color: #94a3b8;
+}
+
+.home-link {
+    color: #d97706;
+    text-decoration: none;
+    font-weight: 600;
+    transition: color 0.2s;
+}
+
+.home-link:hover {
+    color: #f59e0b;
+    text-decoration: underline;
+}
+
+.error-image-container {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.kweebec-image {
+    max-width: 100%;
+    height: auto;
+    filter: drop-shadow(0 0 20px rgba(0, 0, 0, 0.5));
+    animation: float 4s ease-in-out infinite;
+}
+
+@keyframes float {
+    0% {
+        transform: translateY(0px);
+    }
+
+    50% {
+        transform: translateY(-15px);
+    }
+
+    100% {
+        transform: translateY(0px);
+    }
+}
+
+.not-found-footer-wrapper {
+    margin-top: auto;
+    width: 100%;
+}
+
+@media (max-width: 768px) {
+    .not-found-content {
+        flex-direction: column;
+        text-align: center;
+        gap: 2rem;
+    }
+
+    .error-title {
+        font-size: 3rem;
+    }
+
+    .error-divider {
+        background: linear-gradient(90deg, transparent 0%, #d97706 50%, transparent 100%);
+    }
+}
