@@ -122,6 +122,12 @@ npm start
 
 This project is licensed under the MIT License - see the LICENSE file for details.
 
+**Attribution Required**: You are free to use, modify, and distribute this software, provided that credit to the original creator ([**avalontm**](https://github.com/avalontm)) is maintained in all copies or substantial portions of the software.
+
+## Credits
+
+Created and maintained by [**avalontm**](https://github.com/avalontm).
+
 ## Disclaimer
 
 Hytale Panel is an independent project and is not affiliated with Hypixel Studios or the Hytale brand.
