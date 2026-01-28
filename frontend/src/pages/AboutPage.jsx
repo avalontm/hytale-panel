@@ -1,5 +1,5 @@
 import { Github, Mail, Globe, Code2, ExternalLink } from 'lucide-react';
-import { PANEL_VERSION, DEVELOPER_NAME, GITHUB_URL, PROFILE_IMAGE, DEVELOPER_EMAIL, DEVELOPER_WEBSITE } from '../config';
+import { PANEL_VERSION, DEVELOPER_NAME, GITHUB_URL, REPOSITORY_URL, PROFILE_IMAGE, DEVELOPER_EMAIL, DEVELOPER_WEBSITE } from '../config';
 import './AboutPage.css';
 
 function AboutPage() {
@@ -62,7 +62,7 @@ function AboutPage() {
                                 <h4>Open Source on GitHub</h4>
                                 <p>Contributions and bug reports are always welcome.</p>
                                 <a
-                                    href={GITHUB_URL}
+                                    href={REPOSITORY_URL}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="btn btn-secondary compact"
