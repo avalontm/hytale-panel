@@ -7,5 +7,14 @@
     "websiteUrl": "https://www.curseforge.com/hytale/prefabs/prefab-cozy-camelia-house",
     "provider": "curseforge",
     "installedAt": "2026-01-27T22:03:01.801Z"
+  },
+  "HomeClaimProtection-0.0.5.jar": {
+    "modId": 1440437,
+    "name": "Home Claim Protection",
+    "logo": "https://media.forgecdn.net/avatars/thumbnails/1633/834/256/256/639046578732991027.png",
+    "summary": "Home Claim Protection System for Players",
+    "websiteUrl": "https://www.curseforge.com/hytale/mods/home-claim-protection",
+    "provider": "curseforge",
+    "installedAt": "2026-01-28T04:53:55.761Z"
   }
 }

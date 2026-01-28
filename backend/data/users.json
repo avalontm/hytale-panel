@@ -1,11 +1,11 @@
 [
   {
-    "id": "1769564767276",
+    "id": "1769576023105",
     "user": "avalontm",
-    "password": "$2b$10$3/gzmNSTkPhkxIXhzyQIn.mlt4yuKCP8CRErJQFpMAMYsp6IeuNmS",
+    "password": "$2b$10$JyZ3T0nvz0.A.rE3JCESoOG6lkH2c2iW7Z2J6UM7Xw8iyYmgtBUuG",
     "role": "admin",
     "active": true,
-    "createdAt": "2026-01-28T01:46:07.276Z",
-    "loginDate": "2026-01-28T04:21:45.327Z"
+    "createdAt": "2026-01-28T04:53:43.105Z",
+    "loginDate": null
   }
 ]
