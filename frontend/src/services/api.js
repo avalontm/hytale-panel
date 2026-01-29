@@ -92,4 +92,20 @@ export const universeAPI = {
   list: () => api.get('/universes')
 };
 
+// User API
+export const userAPI = {
+  list: () => api.get('/users'),
+  create: (data) => api.post('/users', data),
+  update: (id, data) => api.put(`/users/${id}`, data),
+  delete: (id) => api.delete(`/users/${id}`),
+  toggleActive: (id) => api.post(`/users/${id}/toggle-active`)
+};
+
+// Player API
+export const playerAPI = {
+  list: () => api.get('/players/list'),
+  get: (uuid) => api.get(`/players/${uuid}`),
+  update: (uuid, data) => api.put(`/players/${uuid}`, data)
+};
+
 export default api;

@@ -11,6 +11,7 @@ import SetupPage from './pages/SetupPage';
 import NotFoundPage from './pages/NotFoundPage';
 import UniversesPage from './pages/UniversesPage';
 import AboutPage from './pages/AboutPage';
+import PlayersPage from './pages/PlayersPage';
 import ScrollToTop from './components/common/ScrollToTop';
 import { DialogProvider } from './contexts/DialogContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -48,6 +49,7 @@ function AppRoutes() {
         <Route path="files" element={<FilesPage />} />
         <Route path="plugins" element={<PluginsPage />} />
         <Route path="users" element={<UsersPage />} />
+        <Route path="players" element={<PlayersPage />} />
         <Route path="settings" element={<SettingsPage />} />
         <Route path="universes" element={<UniversesPage />} />
         <Route path="about" element={<AboutPage />} />

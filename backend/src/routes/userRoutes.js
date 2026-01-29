@@ -7,9 +7,13 @@ const router = express.Router();
 // All user routes require authentication
 router.use(validateToken);
 
-router.get('/', async (req, res) => {
+router.get('/', isAdmin, async (req, res) => {
     try {
         const users = await userService.getAll();
+        if (!Array.isArray(users)) {
+            console.error('[UserRoutes] userService.getAll() did not return an array:', users);
+            return res.json([]);
+        }
         // Strip passwords before sending
         const safeUsers = users.map(({ password, ...rest }) => rest);
         res.json(safeUsers);

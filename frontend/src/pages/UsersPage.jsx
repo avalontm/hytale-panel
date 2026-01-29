@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import { userAPI } from '../services/api';
 import { User, UserPlus, UserMinus, Shield, ShieldAlert, Edit2, Trash2, Power, PowerOff, Check, X } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useDialog } from '../contexts/DialogContext';
@@ -25,12 +25,19 @@ function UsersPage() {
 
     const fetchUsers = async () => {
         try {
-            const response = await axios.get('/api/users');
-            setUsers(response.data);
+            const response = await userAPI.list();
+            if (Array.isArray(response.data)) {
+                setUsers(response.data);
+            } else {
+                console.error('Invalid users response format:', response.data);
+                setUsers([]);
+                setError('Invalid server response format');
+            }
             setLoading(false);
         } catch (err) {
             console.error('Error fetching users:', err);
             setLoading(false);
+            setError('Failed to load users');
         }
     };
 
@@ -40,9 +47,9 @@ function UsersPage() {
 
         try {
             if (editingUser) {
-                await axios.put(`/api/users/${editingUser.id}`, formData);
+                await userAPI.update(editingUser.id, formData);
             } else {
-                await axios.post('/api/users', formData);
+                await userAPI.create(formData);
             }
             closeModal();
             fetchUsers();
@@ -65,7 +72,7 @@ function UsersPage() {
         if (!confirmed) return;
 
         try {
-            await axios.delete(`/api/users/${id}`);
+            await userAPI.delete(id);
             fetchUsers();
         } catch (err) {
             await showAlert('Error deleting user', 'Error');
@@ -79,7 +86,7 @@ function UsersPage() {
         }
 
         try {
-            await axios.post(`/api/users/${id}/toggle-active`);
+            await userAPI.toggleActive(id);
             fetchUsers();
         } catch (err) {
             await showAlert('Error changing status', 'Error');
@@ -107,6 +114,22 @@ function UsersPage() {
     };
 
     if (loading) return <div className="page-loading">Loading users...</div>;
+
+    if (currentUser.role !== 'admin') {
+        return (
+            <div className="users-page fade-in">
+                <div className="page-header">
+                    <h1 className="page-title">Access Denied</h1>
+                </div>
+                <div className="card">
+                    <div style={{ textAlign: 'center', padding: '40px' }}>
+                        <ShieldAlert size={48} color="var(--danger-color)" style={{ marginBottom: '1rem' }} />
+                        <p>You do not have permission to view or manage users.</p>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="users-page fade-in">

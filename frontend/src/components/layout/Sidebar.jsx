@@ -38,6 +38,7 @@ function Sidebar() {
     { path: '/files', icon: FolderOpen, label: 'Files' },
     { path: '/plugins', icon: Package, label: 'Plugins' },
     { path: '/universes', icon: Globe, label: 'Universes' },
+    { path: '/players', icon: Users, label: 'Players' },
   ];
 
   // Only show Users tab to admins

@@ -12,6 +12,7 @@ import userRoutes from './routes/userRoutes.js';
 import installerRoutes from './routes/installerRoutes.js';
 import playitRoutes from './routes/playitRoutes.js';
 import universeRoutes from './routes/universeRoutes.js';
+import playerRoutes from './routes/playerRoutes.js';
 import { validateToken } from './middleware/authMiddleware.js';
 import { setupSocketHandlers } from './services/socketService.js';
 
@@ -52,6 +53,7 @@ app.use('/api/plugins', validateToken, pluginRoutes);
 app.use('/api/settings', validateToken, settingsRoutes);
 app.use('/api/playit', validateToken, playitRoutes);
 app.use('/api/universes', validateToken, universeRoutes);
+app.use('/api/players', validateToken, playerRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
