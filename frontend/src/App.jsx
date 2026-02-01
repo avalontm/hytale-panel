@@ -15,14 +15,14 @@ import PlayersPage from './pages/PlayersPage';
 import ScrollToTop from './components/common/ScrollToTop';
 import { DialogProvider } from './contexts/DialogContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
-import './styles/global.css';
+import './index.css';
 
 function AppRoutes() {
   const { user, needsSetup, loading } = useAuth();
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#0f172a', color: 'white' }}>
+      <div className="app-container" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
         Loading...
       </div>
     );

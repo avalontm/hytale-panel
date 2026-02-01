@@ -46,6 +46,7 @@ function ServerControls({ status }) {
 
   return (
     <div className="card">
+      <div className="card-glow" />
       <h3 className="card-title">Server Controls</h3>
 
       <div className="controls-grid">
