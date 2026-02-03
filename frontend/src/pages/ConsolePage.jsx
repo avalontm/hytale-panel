@@ -8,6 +8,7 @@ import './ConsolePage.css';
 function ConsolePage() {
   const { status, stats } = useServerStatus();
   const [logs, setLogs] = useState([]);
+  const [isSyncing, setIsSyncing] = useState(true);
   const [command, setCommand] = useState('');
   const [commandHistory, setCommandHistory] = useState([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
@@ -23,7 +24,11 @@ function ConsolePage() {
 
     const handleHistory = (history) => {
       setLogs(history);
+      setIsSyncing(false);
     };
+
+    // Auto-hide sync indicator after 3 seconds even if no history (avoid stuck UI)
+    const syncTimeout = setTimeout(() => setIsSyncing(false), 3000);
 
     socketService.on('console', handleConsole);
     socketService.on('consoleHistory', handleHistory);
@@ -33,6 +38,7 @@ function ConsolePage() {
     return () => {
       socketService.off('console', handleConsole);
       socketService.off('consoleHistory', handleHistory);
+      clearTimeout(syncTimeout);
     };
   }, []);
 
@@ -88,6 +94,12 @@ function ConsolePage() {
       </div>
 
       <div className="console-container">
+        {isSyncing && (
+          <div className="console-sync-overlay">
+            <div className="sync-spinner"></div>
+            <span>Sincronizando consola...</span>
+          </div>
+        )}
         <div className="console-output" ref={consoleOutputRef}>
           {logs.map((log, index) => (
             <div key={index} className="console-line">

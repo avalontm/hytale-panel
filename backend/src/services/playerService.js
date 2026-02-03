@@ -1,6 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import settingsService from './settingsService.js';
+import serverService from './serverService.js';
 
 class PlayerService {
     async getPlayersDir() {
@@ -55,7 +56,7 @@ class PlayerService {
 
         // Add OP status
         const isOp = await this.isOp(uuid);
-        return { ...data, isOp };
+        return { ...data, isOp, uuid };
     }
 
     async updatePlayer(uuid, updates) {
@@ -103,6 +104,29 @@ class PlayerService {
     }
 
     async setOp(uuid, isOp) {
+        // 1. Get player name first for the command
+        let name = 'Unknown';
+        try {
+            const dir = await this.getPlayersDir();
+            const content = await fs.readFile(path.join(dir, `${uuid}.json`), 'utf8');
+            const data = JSON.parse(content);
+            name = data.Components?.Nameplate?.Text || data.Components?.DisplayName?.DisplayName?.RawText || 'Unknown';
+        } catch (err) {
+            console.error('[PlayerService] Failed to read player name for OP command:', err.message);
+        }
+
+        // 2. Send command to live server if online (with / prefix as requested)
+        if (name !== 'Unknown') {
+            const command = isOp ? `/op add ${name}` : `/op remove ${name}`;
+            if (serverService.status === 'online') {
+                console.log(`[PlayerService] Priority sync: Sending command to server: ${command}`);
+                serverService.sendCommand(command);
+            } else {
+                console.log(`[PlayerService] Server is offline. Command skipped (will apply via file): ${command}`);
+            }
+        }
+
+        // 3. Update permissions.json for persistence
         const file = await this.getPermissionsFile();
         let perms = { users: {}, groups: {} };
         try {
@@ -123,6 +147,7 @@ class PlayerService {
         }
 
         await fs.writeFile(file, JSON.stringify(perms, null, 2));
+        console.log(`[PlayerService] Permissions file updated for ${uuid} (OP: ${isOp})`);
     }
 }
 

@@ -1,9 +1,11 @@
 .console-page {
   width: 100%;
-  max-width: 100%;
-  height: calc(100vh - var(--header-height) - 48px);
+  height: 100%;
   display: flex;
   flex-direction: column;
+  flex: 1;
+  min-height: 500px;
+  /* Alway keep a decent height even if empty */
 }
 
 .console-header {
@@ -18,12 +20,15 @@
   border: 1px solid var(--border-color);
   border-radius: 8px;
   overflow: hidden;
+  min-height: 0;
+  /* Important for flex child with overflow */
 }
 
 .console-output {
   flex: 1;
   padding: 16px;
   overflow-y: auto;
+  overflow-x: hidden;
   font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
   font-size: 13px;
   line-height: 1.6;
@@ -34,6 +39,7 @@
 .console-line {
   white-space: pre-wrap;
   word-wrap: break-word;
+  word-break: break-all;
   margin-bottom: 2px;
 }
 
@@ -83,5 +89,49 @@
 
   .console-input {
     font-size: 12px;
+  }
+}
+
+.console-sync-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  z-index: 10;
+  color: #fff;
+  font-weight: 600;
+  backdrop-filter: blur(2px);
+  animation: fadeIn 0.3s ease-out;
+}
+
+.sync-spinner {
+  width: 30px;
+  height: 30px;
+  border: 3px solid rgba(255, 255, 255, 0.1);
+  border-top-color: var(--accent-green);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
   }
 }

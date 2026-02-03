@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback } from 'react';
+import { createContext, useContext, useState, useCallback, useMemo } from 'react';
 import Dialog from '../components/common/Dialog';
 
 const DialogContext = createContext(null);
@@ -43,7 +43,7 @@ export function DialogProvider({ children }) {
         return showDialog({ title, message, type: 'prompt', defaultValue });
     }, [showDialog]);
 
-    const handleConfirm = () => {
+    const handleConfirm = useCallback(() => {
         setDialogState(prev => {
             if (prev.resolve) {
                 if (prev.type === 'prompt') {
@@ -54,13 +54,12 @@ export function DialogProvider({ children }) {
             }
             return { ...prev, isOpen: false };
         });
-    };
+    }, [inputValue]);
 
-    const handleCancel = () => {
+    const handleCancel = useCallback(() => {
         setDialogState(prev => {
             if (prev.resolve) {
                 if (prev.type === 'prompt') {
-                    // Start of Selection
                     prev.resolve(null);
                 } else {
                     prev.resolve(false);
@@ -68,10 +67,14 @@ export function DialogProvider({ children }) {
             }
             return { ...prev, isOpen: false };
         });
-    };
+    }, []);
+
+    const contextValue = useMemo(() => ({
+        showDialog, showAlert, showConfirm, showPrompt
+    }), [showDialog, showAlert, showConfirm, showPrompt]);
 
     return (
-        <DialogContext.Provider value={{ showDialog, showAlert, showConfirm, showPrompt }}>
+        <DialogContext.Provider value={contextValue}>
             {children}
             <Dialog
                 isOpen={dialogState.isOpen}

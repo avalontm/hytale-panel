@@ -3,7 +3,7 @@ import { playerAPI } from '../services/api';
 import { useDialog } from '../contexts/DialogContext';
 import {
     Users, Shield, ShieldOff, Edit2, MapPin, Activity,
-    Heart, Zap, Wind, Save, X, ChevronRight, Gamepad2
+    Heart, Zap, Wind, Save, X, ChevronRight, Gamepad2, Search
 } from 'lucide-react';
 import '../styles/global.css';
 
@@ -12,8 +12,10 @@ function PlayersPage() {
     const [players, setPlayers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [selectedPlayer, setSelectedPlayer] = useState(null);
+    const [selectedUuid, setSelectedUuid] = useState(null);
     const [editingPlayer, setEditingPlayer] = useState(null);
     const [saving, setSaving] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
 
     useEffect(() => {
         loadPlayers();
@@ -35,6 +37,7 @@ function PlayersPage() {
     const handleSelectPlayer = async (uuid) => {
         try {
             const response = await playerAPI.get(uuid);
+            setSelectedUuid(uuid);
             setSelectedPlayer(response.data);
             setEditingPlayer(JSON.parse(JSON.stringify(response.data))); // Deep clone for editing
         } catch (err) {
@@ -45,7 +48,8 @@ function PlayersPage() {
     const handleSave = async () => {
         setSaving(true);
         try {
-            const uuid = selectedPlayer.Components.UUID.UUID.$binary; // Based on the provided JSON structure
+            const uuid = selectedUuid || selectedPlayer?.uuid;
+            if (!uuid) throw new Error("Internal Error: Player UUID is missing. Please re-select the player.");
             // Hytal Panel expects a specific update structure defined in PlayerService.js
             const updates = {
                 Components: {
@@ -91,6 +95,11 @@ function PlayersPage() {
         });
     };
 
+    const filteredPlayers = players.filter(p =>
+        p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        p.uuid.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
     if (loading) return <div className="page-loading">Searching for players...</div>;
 
     return (
@@ -105,12 +114,36 @@ function PlayersPage() {
             <div style={{ display: 'grid', gridTemplateColumns: '350px 1fr', gap: '24px', flex: 1, overflow: 'hidden' }}>
                 {/* Player List */}
                 <div className="card" style={{ display: 'flex', flexDirection: 'column', padding: 0, overflow: 'hidden' }}>
-                    <div style={{ padding: '16px', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <Users size={18} />
-                        <strong>Players ({players.length})</strong>
+                    <div style={{ padding: '16px', borderBottom: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <Users size={18} />
+                            <strong>Players ({players.length})</strong>
+                        </div>
+                        <div style={{ position: 'relative' }}>
+                            <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', opacity: 0.5 }} />
+                            <input
+                                type="text"
+                                placeholder="Search players..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                style={{
+                                    width: '100%',
+                                    padding: '8px 12px 8px 36px',
+                                    fontSize: '14px',
+                                    height: '38px'
+                                }}
+                            />
+                            {searchQuery && (
+                                <X
+                                    size={16}
+                                    style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', cursor: 'pointer', opacity: 0.5 }}
+                                    onClick={() => setSearchQuery('')}
+                                />
+                            )}
+                        </div>
                     </div>
                     <div style={{ flex: 1, overflowY: 'auto' }}>
-                        {players.map(p => (
+                        {filteredPlayers.map(p => (
                             <div
                                 key={p.uuid}
                                 onClick={() => handleSelectPlayer(p.uuid)}

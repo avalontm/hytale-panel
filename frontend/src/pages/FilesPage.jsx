@@ -3,8 +3,9 @@ import { fileAPI } from '../services/api';
 import { useDialog } from '../contexts/DialogContext';
 import {
     Folder, File as FileIcon, ArrowLeft, RefreshCw,
-    Plus, Trash2, Upload, X, Save, FileText
+    Plus, Trash2, Upload, X, Save, FileText, ToggleLeft, ToggleRight, Layout
 } from 'lucide-react';
+import JsonFormEditor from '../components/common/JsonFormEditor';
 import '../styles/global.css';
 
 function FilesPage() {
@@ -15,11 +16,20 @@ function FilesPage() {
     const [error, setError] = useState(null);
     const [isDragging, setIsDragging] = useState(false);
     const [uploading, setUploading] = useState(false);
+    const [uploadProgress, setUploadProgress] = useState({
+        current: 0,
+        total: 0,
+        percentage: 0,
+        fileName: '',
+        currentFileProgress: 0
+    });
 
     // Editor State
     const [editorOpen, setEditorOpen] = useState(false);
     const [editingFile, setEditingFile] = useState(null); // { name, path }
     const [editorContent, setEditorContent] = useState('');
+    const [visualMode, setVisualMode] = useState(false);
+    const [parsedJson, setParsedJson] = useState(null);
     const [saving, setSaving] = useState(false);
 
     const loadFiles = useCallback(async (path) => {
@@ -47,19 +57,19 @@ function FilesPage() {
         loadFiles(currentPath);
     }, [currentPath, loadFiles]);
 
-    const handleNavigate = (folderName) => {
+    const handleNavigate = useCallback((folderName) => {
         const newPath = currentPath ? `${currentPath}/${folderName}` : folderName;
         setCurrentPath(newPath);
-    };
+    }, [currentPath]);
 
-    const handleBack = () => {
+    const handleBack = useCallback(() => {
         if (!currentPath) return;
         const parts = currentPath.split('/');
         parts.pop();
         setCurrentPath(parts.join('/'));
-    };
+    }, [currentPath]);
 
-    const handleCreateFolder = async () => {
+    const handleCreateFolder = useCallback(async () => {
         const name = await dialog.showPrompt("Enter folder name:", "New Folder", "Create Folder");
         if (!name) return;
         try {
@@ -69,7 +79,7 @@ function FilesPage() {
         } catch (err) {
             dialog.showAlert("Failed to create folder: " + (err.response?.data?.error || err.message), "Error");
         }
-    };
+    }, [currentPath, dialog, loadFiles]);
 
     const handleCreateFile = async () => {
         const name = await dialog.showPrompt("Enter file name (e.g. notes.txt):", "new-file.txt", "Create File");
@@ -103,6 +113,20 @@ function FilesPage() {
             const response = await fileAPI.read(path);
             setEditingFile({ name: fileName, path });
             setEditorContent(response.data.content);
+
+            const isJson = fileName.toLowerCase().endsWith('.json');
+            setVisualMode(isJson);
+            if (isJson) {
+                try {
+                    setParsedJson(JSON.parse(response.data.content));
+                } catch (e) {
+                    console.error("Invalid JSON", e);
+                    setVisualMode(false);
+                }
+            } else {
+                setParsedJson(null);
+            }
+
             setEditorOpen(true);
         } catch (err) {
             dialog.showAlert("Failed to read file: " + (err.response?.data?.error || err.message), "Error");
@@ -113,7 +137,8 @@ function FilesPage() {
         if (!editingFile) return;
         setSaving(true);
         try {
-            await fileAPI.write(editingFile.path, editorContent);
+            const contentToSave = visualMode ? JSON.stringify(parsedJson, null, 2) : editorContent;
+            await fileAPI.write(editingFile.path, contentToSave);
             setEditorOpen(false);
             setEditingFile(null);
             loadFiles(currentPath);
@@ -134,25 +159,97 @@ function FilesPage() {
         e.preventDefault();
         setIsDragging(false);
     };
-
     const onDrop = async (e) => {
         e.preventDefault();
         setIsDragging(false);
-        const droppedFiles = Array.from(e.dataTransfer.files);
-        if (droppedFiles.length === 0) return;
+        const items = Array.from(e.dataTransfer.items);
+        if (items.length === 0) return;
 
         setUploading(true);
-        // Upload sequentially or parallel
-        for (const file of droppedFiles) {
+
+        const uploadTasks = [];
+
+        const traverseFileTree = (item, path = "") => {
+            return new Promise((resolve) => {
+                if (item.isFile) {
+                    item.file((file) => {
+                        uploadTasks.push({
+                            file,
+                            path: path ? `${path}/${file.name}` : file.name
+                        });
+                        resolve();
+                    });
+                } else if (item.isDirectory) {
+                    const dirReader = item.createReader();
+                    const readEntries = () => {
+                        dirReader.readEntries(async (entries) => {
+                            if (entries.length > 0) {
+                                for (const entry of entries) {
+                                    await traverseFileTree(entry, path ? `${path}/${item.name}` : item.name);
+                                }
+                                readEntries(); // Continue reading if more entries
+                            } else {
+                                resolve();
+                            }
+                        });
+                    };
+                    readEntries();
+                } else {
+                    resolve();
+                }
+            });
+        };
+
+        // Collect all files recursively
+        for (const item of items) {
+            const entry = item.webkitGetAsEntry();
+            if (entry) {
+                await traverseFileTree(entry);
+            }
+        }
+
+        const totalFiles = uploadTasks.length;
+        setUploadProgress({
+            current: 0,
+            total: totalFiles,
+            percentage: 0,
+            fileName: '',
+            currentFileProgress: 0
+        });
+
+        // Upload sequentially to avoid overloading the server/network
+        for (let i = 0; i < uploadTasks.length; i++) {
+            const task = uploadTasks[i];
             try {
-                const path = currentPath ? `${currentPath}/${file.name}` : file.name;
-                await fileAPI.upload(path, file);
+                const fullPath = currentPath ? `${currentPath}/${task.path}` : task.path;
+
+                setUploadProgress(prev => ({
+                    ...prev,
+                    current: i + 1,
+                    fileName: task.file.name,
+                    percentage: Math.round((i / totalFiles) * 100),
+                    currentFileProgress: 0
+                }));
+
+                await fileAPI.upload(fullPath, task.file, (progressEvent) => {
+                    const filePercent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+                    setUploadProgress(prev => {
+                        // Total percentage is (filesDone / total) + (currentFilePercent / total)
+                        const overallPercent = Math.round(((i + (filePercent / 100)) / totalFiles) * 100);
+                        return {
+                            ...prev,
+                            currentFileProgress: filePercent,
+                            percentage: overallPercent
+                        };
+                    });
+                });
             } catch (err) {
-                console.error("Upload failed for " + file.name, err);
-                dialog.showAlert(`Failed to upload ${file.name}`, "Upload Error");
+                console.error("Upload failed for " + task.path, err);
+                dialog.showAlert(`Failed to upload ${task.path}`, "Upload Error");
             }
         }
         setUploading(false);
+        setUploadProgress({ current: 0, total: 0, percentage: 0, fileName: '', currentFileProgress: 0 });
         loadFiles(currentPath);
     };
 
@@ -164,10 +261,37 @@ function FilesPage() {
             }}>
                 <div>
                     <h1 className="page-title">File Manager</h1>
-                    <p className="page-subtitle" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <Folder size={14} />
-                        {currentPath ? currentPath.replace(/\//g, ' > ') : 'Root'}
-                    </p>
+                    <div className="page-subtitle" style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
+                        <Folder size={14} style={{ marginRight: '4px', opacity: 0.6 }} />
+                        <span
+                            onClick={() => setCurrentPath('')}
+                            style={{ cursor: 'pointer', color: 'var(--accent-blue)', fontWeight: currentPath === '' ? 'bold' : 'normal' }}
+                            onMouseEnter={(e) => e.target.style.textDecoration = 'underline'}
+                            onMouseLeave={(e) => e.target.style.textDecoration = 'none'}
+                        >
+                            Root
+                        </span>
+                        {currentPath.split('/').filter(Boolean).map((part, index, array) => (
+                            <span key={index} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                <span style={{ opacity: 0.5 }}>/</span>
+                                <span
+                                    onClick={() => {
+                                        const newPath = array.slice(0, index + 1).join('/');
+                                        setCurrentPath(newPath);
+                                    }}
+                                    style={{
+                                        cursor: 'pointer',
+                                        color: index === array.length - 1 ? 'var(--text-primary)' : 'var(--accent-blue)',
+                                        fontWeight: index === array.length - 1 ? '600' : 'normal'
+                                    }}
+                                    onMouseEnter={(e) => index !== array.length - 1 && (e.target.style.textDecoration = 'underline')}
+                                    onMouseLeave={(e) => index !== array.length - 1 && (e.target.style.textDecoration = 'none')}
+                                >
+                                    {part}
+                                </span>
+                            </span>
+                        ))}
+                    </div>
                 </div>
                 <div style={{ display: 'flex', gap: '10px' }}>
                     <button onClick={() => loadFiles(currentPath)} className="btn btn-secondary" title="Refresh">
@@ -229,7 +353,55 @@ function FilesPage() {
                 <div className="file-list" style={{ overflowY: 'auto', flex: 1 }}>
                     {loading || uploading ? (
                         <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>
-                            {uploading ? 'Uploading files...' : 'Loading...'}
+                            {uploading ? (
+                                <div style={{
+                                    padding: '3rem',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    alignItems: 'center',
+                                    gap: '20px',
+                                    background: 'var(--bg-secondary)',
+                                    height: '100%'
+                                }}>
+                                    <div style={{ position: 'relative', width: '100%', maxWidth: '400px' }}>
+                                        <div style={{
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            marginBottom: '8px',
+                                            fontSize: '13px',
+                                            fontWeight: 600,
+                                            color: 'var(--text-secondary)'
+                                        }}>
+                                            <span>Subiendo: {uploadProgress.fileName}</span>
+                                            <span>{uploadProgress.percentage}%</span>
+                                        </div>
+                                        <div style={{
+                                            width: '100%',
+                                            height: '8px',
+                                            background: 'var(--bg-primary)',
+                                            borderRadius: '4px',
+                                            overflow: 'hidden',
+                                            border: '1px solid var(--border-color)'
+                                        }}>
+                                            <div style={{
+                                                width: `${uploadProgress.percentage}%`,
+                                                height: '100%',
+                                                background: 'var(--accent-green)',
+                                                boxShadow: '0 0 10px rgba(16, 185, 129, 0.4)',
+                                                transition: 'width 0.3s ease-out'
+                                            }}></div>
+                                        </div>
+                                        <div style={{
+                                            marginTop: '8px',
+                                            textAlign: 'center',
+                                            fontSize: '12px',
+                                            color: 'var(--text-muted)'
+                                        }}>
+                                            Archivo {uploadProgress.current} de {uploadProgress.total}
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : 'Loading...'}
                         </div>
                     ) : files.length === 0 ? (
                         <div style={{ padding: '4rem', textAlign: 'center', color: 'var(--text-muted)' }}>
@@ -249,14 +421,14 @@ function FilesPage() {
                                     padding: '12px 20px',
                                     borderBottom: '1px solid var(--border-color)',
                                     alignItems: 'center',
-                                    cursor: file.isDirectory ? 'pointer' : 'default',
+                                    cursor: 'pointer',
                                     transition: 'background 0.2s'
                                 }}
                                 onClick={() => file.isDirectory ? handleNavigate(file.name) : handleEditFile(file.name)}
                                 onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-hover)'}
                                 onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                             >
-                                <div style={{ color: file.isDirectory ? 'var(--accent-gold)' : 'var(--text-secondary)' }}>
+                                <div style={{ color: file.isDirectory ? 'var(--accent-gold)' : 'var(--text-highlight)', display: 'flex', alignItems: 'center' }}>
                                     {file.isDirectory ? <Folder size={20} /> : <FileIcon size={20} />}
                                 </div>
                                 <div style={{ fontWeight: 500 }}>
@@ -314,24 +486,52 @@ function FilesPage() {
                                 <FileText size={18} />
                                 {editingFile?.name}
                             </h3>
-                            <button onClick={() => setEditorOpen(false)} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}>
-                                <X size={24} />
-                            </button>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                {editingFile?.name.toLowerCase().endsWith('.json') && (
+                                    <button
+                                        className={`btn btn-sm ${visualMode ? 'btn-primary' : 'btn-ghost'}`}
+                                        onClick={() => {
+                                            if (!visualMode) {
+                                                try {
+                                                    setParsedJson(JSON.parse(editorContent));
+                                                    setVisualMode(true);
+                                                } catch (e) {
+                                                    dialog.showAlert("Cannot switch to visual mode: Invalid JSON structure", "Error");
+                                                }
+                                            } else {
+                                                setEditorContent(JSON.stringify(parsedJson, null, 2));
+                                                setVisualMode(false);
+                                            }
+                                        }}
+                                        style={{ display: 'flex', alignItems: 'center', gap: '5px' }}
+                                    >
+                                        {visualMode ? <Layout size={16} /> : <FileText size={16} />}
+                                        {visualMode ? 'Visual Editor' : 'Text Editor'}
+                                    </button>
+                                )}
+                                <button onClick={() => setEditorOpen(false)} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}>
+                                    <X size={24} />
+                                </button>
+                            </div>
                         </div>
 
-                        <div style={{ flex: 1, position: 'relative' }}>
-                            <textarea
-                                value={editorContent}
-                                onChange={(e) => setEditorContent(e.target.value)}
-                                style={{
-                                    width: '100%', height: '100%',
-                                    background: 'var(--bg-primary)',
-                                    color: 'var(--text-primary)',
-                                    border: 'none', padding: '1rem',
-                                    fontFamily: 'monospace', fontSize: '14px',
-                                    resize: 'none', outline: 'none'
-                                }}
-                            />
+                        <div style={{ flex: 1, position: 'relative', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                            {visualMode ? (
+                                <JsonFormEditor data={parsedJson} onChange={setParsedJson} />
+                            ) : (
+                                <textarea
+                                    value={editorContent}
+                                    onChange={(e) => setEditorContent(e.target.value)}
+                                    style={{
+                                        width: '100%', height: '100%',
+                                        background: 'var(--bg-primary)',
+                                        color: 'var(--text-primary)',
+                                        border: 'none', padding: '1rem',
+                                        fontFamily: 'monospace', fontSize: '14px',
+                                        resize: 'none', outline: 'none'
+                                    }}
+                                />
+                            )}
                         </div>
 
                         <div style={{

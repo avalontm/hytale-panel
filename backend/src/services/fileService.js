@@ -78,6 +78,8 @@ class FileService {
 
   async uploadFile(filePath, buffer) {
     const fullPath = await this.resolvePath(filePath);
+    const dirPath = path.dirname(fullPath);
+    await fs.mkdir(dirPath, { recursive: true });
     await fs.writeFile(fullPath, buffer);
     return { success: true };
   }

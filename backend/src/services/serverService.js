@@ -22,17 +22,29 @@ class ServerService extends EventEmitter {
     this.MAX_LOGS = 1000;
     this.startTime = null;
     this.statsInterval = null;
+    this.lineBuffer = '';
     this.checkPidFile();
   }
 
   addLog(data) {
-    const line = data.toString();
-    this.logs.push(line);
-    if (this.logs.length > this.MAX_LOGS) {
-      this.logs.shift();
+    const chunk = data.toString();
+    this.lineBuffer += chunk;
+
+    const lines = this.lineBuffer.split(/\r?\n/);
+    // Keep the last partial line in the buffer
+    this.lineBuffer = lines.pop() || '';
+
+    for (const line of lines) {
+      if (line.trim() === '' && line !== '') continue; // Skip empty lines but keep valid ones
+
+      this.logs.push(line);
+      if (this.logs.length > this.MAX_LOGS) {
+        this.logs.shift();
+      }
+      this.emit('console', line);
     }
-    this.emit('console', line);
-    return line.replace(/\x1B\[[0-9;]*[mK]/g, '');
+
+    return chunk.replace(/\x1B\[[0-9;]*[mK]/g, '');
   }
 
   async checkPidFile() {
@@ -251,35 +263,91 @@ class ServerService extends EventEmitter {
     }
   }
 
-  stop() {
-    if (this.status !== 'online' && !this.process) {
-      throw new Error('Server is not running');
+  async stop() {
+    if (this.status === 'offline' && !this.process && !this.pid) {
+      return { success: true, message: 'Server is already offline' };
     }
 
-    if (this.process) {
-      this.sendCommand('stop');
-      setTimeout(() => {
-        if (this.process) this.process.kill('SIGTERM');
+    console.log('[ServerService] Stopping server...');
+    this.status = 'stopping';
+    this.emit('statusChange', 'stopping');
+
+    return new Promise(async (resolve, reject) => {
+      const timeout = setTimeout(() => {
+        if (this.process) {
+          console.log('[ServerService] Force killing server process...');
+          this.process.kill('SIGKILL');
+        } else if (this.pid) {
+          console.log(`[ServerService] Force killing orphaned process ${this.pid}`);
+          try { process.kill(this.pid, 'SIGKILL'); } catch (e) { }
+        }
+        cleanup();
+        resolve({ success: true, message: 'Server force killed' });
       }, 30000);
-    } else if (this.pid) {
-      console.log(`[ServerService] Stopping orphaned process ${this.pid}`);
-      try {
-        process.kill(this.pid, 'SIGTERM');
-      } catch (e) {
-        console.error("Failed to kill PID:", e);
+
+      const cleanup = async () => {
+        clearTimeout(timeout);
+        this.status = 'offline';
+        this.process = null;
+        this.pid = null;
+        this.startTime = null;
+        try {
+          await fs.unlink(path.resolve('data/server.pid')).catch(() => { });
+        } catch (e) { }
+        this.emit('statusChange', 'offline');
+        if (this.statsInterval) {
+          clearInterval(this.statsInterval);
+          this.statsInterval = null;
+        }
+      };
+
+      if (this.process) {
+        this.process.once('close', () => {
+          cleanup();
+          resolve({ success: true, message: 'Server stopped' });
+        });
+        try {
+          this.sendCommand('stop');
+        } catch (e) {
+          this.process.kill('SIGTERM');
+        }
+      } else if (this.pid) {
+        try {
+          process.kill(this.pid, 'SIGTERM');
+          // Since we don't have a process object, we check if it's dead
+          let checks = 0;
+          const interval = setInterval(() => {
+            try {
+              process.kill(this.pid, 0);
+              checks++;
+              if (checks > 10) {
+                process.kill(this.pid, 'SIGKILL');
+                clearInterval(interval);
+                cleanup();
+                resolve({ success: true, message: 'Server force killed' });
+              }
+            } catch (e) {
+              clearInterval(interval);
+              cleanup();
+              resolve({ success: true, message: 'Server stopped' });
+            }
+          }, 500);
+        } catch (e) {
+          cleanup();
+          resolve({ success: true, message: 'Server already stopped' });
+        }
+      } else {
+        cleanup();
+        resolve({ success: true, message: 'Server stopped' });
       }
-
-      this.status = 'offline';
-      this.emit('statusChange', 'offline');
-      fs.unlink(path.resolve('data/server.pid')).catch(() => { });
-    }
-
-    return { success: true, message: 'Server stopping' };
+    });
   }
 
   async restart() {
+    console.log('[ServerService] Restarting server...');
     await this.stop();
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    // Wait a bit to ensure ports are released
+    await new Promise(resolve => setTimeout(resolve, 3000));
     return this.start();
   }
 

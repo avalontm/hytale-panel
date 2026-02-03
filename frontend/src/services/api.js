@@ -53,12 +53,13 @@ export const fileAPI = {
   write: (path, content) => api.post('/files/write', { path, content }),
   delete: (path) => api.delete('/files/delete', { data: { path } }),
   createDirectory: (path) => api.post('/files/mkdir', { path }),
-  upload: (path, file) => {
+  upload: (path, file, onProgress) => {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('path', path);
     return api.post('/files/upload', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
+      headers: { 'Content-Type': 'multipart/form-data' },
+      onUploadProgress: onProgress
     });
   }
 };
@@ -66,11 +67,12 @@ export const fileAPI = {
 // Plugin API
 export const pluginAPI = {
   list: () => api.get('/plugins/list'),
-  upload: (file) => {
+  upload: (file, onProgress) => {
     const formData = new FormData();
     formData.append('plugin', file);
     return api.post('/plugins/upload', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
+      headers: { 'Content-Type': 'multipart/form-data' },
+      onUploadProgress: onProgress
     });
   },
   delete: (name) => api.delete('/plugins/delete', { data: { name } }),

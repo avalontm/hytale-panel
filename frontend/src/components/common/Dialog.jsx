@@ -13,22 +13,24 @@ function Dialog({ isOpen, title, message, type = 'info', onConfirm, onCancel, in
     if (!isOpen) return null;
 
     const handleBackdropClick = (e) => {
-        if (e.target === e.currentTarget && type !== 'alert') {
-            onCancel();
+        if (e.target === e.currentTarget) {
+            // Background click disabled by user request
+            // onCancel(); 
         }
     };
 
     const handleKeyDown = (e) => {
         if (e.key === 'Enter') {
             onConfirm();
-        } else if (e.key === 'Escape' && type !== 'alert') {
-            onCancel();
+        } else if (e.key === 'Escape') {
+            // Escape key disabled for closing by user request
+            // onCancel();
         }
     };
 
     return (
         <div
-            className="dialog-overlay fade-in"
+            className="dialog-overlay-animate"
             onClick={handleBackdropClick}
             style={{
                 position: 'fixed', inset: 0, zIndex: 2000,
@@ -38,16 +40,14 @@ function Dialog({ isOpen, title, message, type = 'info', onConfirm, onCancel, in
             }}
         >
             <div
-                className="dialog-card"
+                className="dialog-card-animate"
                 style={{
                     width: '100%', maxWidth: '400px',
                     background: 'var(--bg-secondary)',
                     border: '1px solid var(--border-color)',
                     boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
                     borderRadius: '8px',
-                    overflow: 'hidden',
-                    transform: 'translateY(0)',
-                    animation: 'slideUp 0.3s ease-out'
+                    overflow: 'hidden'
                 }}
             >
                 {/* Header */}
@@ -76,7 +76,7 @@ function Dialog({ isOpen, title, message, type = 'info', onConfirm, onCancel, in
 
                 {/* Body */}
                 <div style={{ padding: '20px' }}>
-                    <p style={{ margin: 0, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                    <p style={{ margin: 0, color: 'var(--text-secondary)', lineHeight: 1.5, wordBreak: 'break-all' }}>
                         {message}
                     </p>
 

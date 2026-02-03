@@ -19,6 +19,7 @@
     --accent-blue-dark: #0077cc;
     --accent-green: #10b981;
     --accent-red: #ef4444;
+    --accent-gold: #fbbf24;
 
     --primary-gradient: linear-gradient(to bottom, var(--accent-blue) 0%, var(--accent-blue-dark) 100%);
     --danger-gradient: linear-gradient(to bottom, #ef4444 0%, #b91c1c 100%);
@@ -28,6 +29,10 @@
 
     --radius-md: 8px;
     --radius-sm: 4px;
+
+    /* Layout */
+    --header-height: 70px;
+    --sidebar-width: 260px;
 }
 
 * {
@@ -93,6 +98,37 @@ code {
     animation: fadeIn 0.5s ease-out;
 }
 
+/* Stable animations for Dialogs to prevent re-triggering jumps on render */
+@keyframes dialogFadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes dialogSlideUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.dialog-overlay-animate {
+    animation: dialogFadeIn 0.3s ease-out forwards;
+}
+
+.dialog-card-animate {
+    animation: dialogSlideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
 /* --- Panel Component Classes --- */
 
 .card {
@@ -147,6 +183,17 @@ code {
 .btn-primary:hover:not(:disabled) {
     filter: brightness(1.1);
     transform: translateY(-1px);
+}
+
+.btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    filter: grayscale(0.5);
+    background: var(--bg-tertiary) !important;
+    border-color: var(--border-color) !important;
+    color: var(--text-muted) !important;
+    box-shadow: none !important;
+    transform: none !important;
 }
 
 .btn-danger {

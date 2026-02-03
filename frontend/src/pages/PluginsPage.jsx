@@ -4,7 +4,7 @@ import * as settingsAPI from '../services/settingsApi';
 import { useDialog } from '../contexts/DialogContext';
 import {
     Package, Trash2, Upload, Search, Download, Layers,
-    ExternalLink, Settings
+    ExternalLink, Settings, X
 } from 'lucide-react';
 import '../styles/global.css';
 
@@ -15,6 +15,7 @@ function PluginsPage() {
     // Installed State
     const [localPlugins, setLocalPlugins] = useState([]);
     const [loadingLocal, setLoadingLocal] = useState(false);
+    const [localSearchQuery, setLocalSearchQuery] = useState('');
 
     // Browse State
     const [provider, setProvider] = useState('CurseForge');
@@ -30,6 +31,13 @@ function PluginsPage() {
 
     // Upload State
     const [uploading, setUploading] = useState(false);
+    const [uploadProgress, setUploadProgress] = useState({
+        current: 0,
+        total: 0,
+        percentage: 0,
+        fileName: '',
+        currentFileProgress: 0
+    });
     const fileInputRef = useRef(null);
     const [isDragging, setIsDragging] = useState(false);
 
@@ -88,19 +96,42 @@ function PluginsPage() {
 
     const processUploads = async (files) => {
         setUploading(true);
-        for (const file of files) {
+        const totalFiles = files.length;
+        setUploadProgress({ current: 0, total: totalFiles, percentage: 0, fileName: '', currentFileProgress: 0 });
+
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
             if (!file.name.toLowerCase().endsWith('.jar')) {
                 dialog.showAlert(`Skipped ${file.name}: Only .jar files are allowed.`);
                 continue;
             }
             try {
-                await pluginAPI.upload(file);
+                setUploadProgress(prev => ({
+                    ...prev,
+                    current: i + 1,
+                    fileName: file.name,
+                    percentage: Math.round((i / totalFiles) * 100),
+                    currentFileProgress: 0
+                }));
+
+                await pluginAPI.upload(file, (progressEvent) => {
+                    const filePercent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+                    setUploadProgress(prev => {
+                        const overallPercent = Math.round(((i + (filePercent / 100)) / totalFiles) * 100);
+                        return {
+                            ...prev,
+                            currentFileProgress: filePercent,
+                            percentage: overallPercent
+                        };
+                    });
+                });
             } catch (err) {
                 console.error(err);
                 dialog.showAlert(`Failed to upload ${file.name}`);
             }
         }
         setUploading(false);
+        setUploadProgress({ current: 0, total: 0, percentage: 0, fileName: '', currentFileProgress: 0 });
         loadLocalPlugins();
     };
 
@@ -197,6 +228,16 @@ function PluginsPage() {
         return localPlugins.some(p => p.modId === modId);
     };
 
+    // Filtered local plugins
+    const filteredLocalPlugins = localPlugins.filter(mod => {
+        const query = localSearchQuery.toLowerCase();
+        return (
+            (mod.displayName || mod.name).toLowerCase().includes(query) ||
+            (mod.description || '').toLowerCase().includes(query) ||
+            (mod.name || '').toLowerCase().includes(query)
+        );
+    });
+
     // --- Provider Settings Logic ---
     const saveProviderSettings = async () => {
         try {
@@ -269,14 +310,81 @@ function PluginsPage() {
                     </div>
                 )}
 
+                {uploading && activeTab === 'installed' && (
+                    <div style={{
+                        position: 'absolute', inset: 0, zIndex: 20,
+                        background: 'rgba(11, 18, 29, 0.95)',
+                        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                        padding: '2rem', textAlign: 'center'
+                    }}>
+                        <div style={{ position: 'relative', width: '100%', maxWidth: '400px' }}>
+                            <div style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                marginBottom: '12px',
+                                fontSize: '14px',
+                                fontWeight: 700,
+                                color: 'var(--text-primary)'
+                            }}>
+                                <span>Subiendo Mod: {uploadProgress.fileName}</span>
+                                <span>{uploadProgress.percentage}%</span>
+                            </div>
+                            <div style={{
+                                width: '100%',
+                                height: '10px',
+                                background: 'var(--bg-tertiary)',
+                                borderRadius: '5px',
+                                overflow: 'hidden',
+                                border: '1px solid var(--border-color)',
+                                marginBottom: '12px'
+                            }}>
+                                <div style={{
+                                    width: `${uploadProgress.percentage}%`,
+                                    height: '100%',
+                                    background: 'var(--accent-green)',
+                                    boxShadow: '0 0 15px rgba(16, 185, 129, 0.5)',
+                                    transition: 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+                                }}></div>
+                            </div>
+                            <div style={{
+                                fontSize: '13px',
+                                color: 'var(--text-secondary)',
+                                background: 'rgba(255, 255, 255, 0.05)',
+                                padding: '6px 12px',
+                                borderRadius: '4px',
+                                display: 'inline-block'
+                            }}>
+                                Jar {uploadProgress.current} de {uploadProgress.total}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {/* INSTALLED TAB */}
                 {activeTab === 'installed' && (
                     <>
                         <div className="card" style={{ padding: '20px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <div style={{ display: 'flex', gap: '12px', alignItems: 'center', color: 'var(--text-secondary)' }}>
+                            <div style={{ display: 'flex', gap: '12px', alignItems: 'center', color: 'var(--text-secondary)', flex: 1 }}>
                                 <Package size={24} />
-                                <span>
-                                    <strong>{localPlugins.length}</strong> mods installed
+                                <div style={{ position: 'relative', flex: 1, maxWidth: '400px' }}>
+                                    <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', opacity: 0.5 }} />
+                                    <input
+                                        type="text"
+                                        placeholder="Search installed mods..."
+                                        value={localSearchQuery}
+                                        onChange={(e) => setLocalSearchQuery(e.target.value)}
+                                        style={{ width: '100%', paddingLeft: '36px', height: '36px', fontSize: '14px' }}
+                                    />
+                                    {localSearchQuery && (
+                                        <X
+                                            size={16}
+                                            style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', cursor: 'pointer', opacity: 0.5 }}
+                                            onClick={() => setLocalSearchQuery('')}
+                                        />
+                                    )}
+                                </div>
+                                <span style={{ whiteSpace: 'nowrap' }}>
+                                    <strong>{filteredLocalPlugins.length}</strong> / {localPlugins.length} mods
                                 </span>
                             </div>
                             <div>
@@ -303,7 +411,7 @@ function PluginsPage() {
                             gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))',
                             gap: '20px'
                         }}>
-                            {localPlugins.map(mod => (
+                            {filteredLocalPlugins.map(mod => (
                                 <div key={mod.name} className="card" style={{ margin: 0, display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                         {mod.logo ? (

@@ -15,7 +15,7 @@ import PlayersPage from './pages/PlayersPage';
 import ScrollToTop from './components/common/ScrollToTop';
 import { DialogProvider } from './contexts/DialogContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
-import './index.css';
+import './styles/global.css';
 
 function AppRoutes() {
   const { user, needsSetup, loading } = useAuth();
