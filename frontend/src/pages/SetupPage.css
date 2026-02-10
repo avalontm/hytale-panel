@@ -41,6 +41,10 @@
     min-height: 680px;
     display: flex;
     flex-direction: column;
+    max-height: 90vh;
+    /* Prevent overflow */
+    overflow-y: auto;
+    /* Allow scrolling */
 }
 
 .login-header {
@@ -749,4 +753,132 @@
     .login-header h1 {
         font-size: 24px;
     }
+}
+
+/* Read-only input style */
+.readonly-input {
+    background-color: rgba(0, 0, 0, 0.2) !important;
+    border-color: transparent !important;
+    color: var(--text-muted) !important;
+    cursor: default;
+}
+
+/* Right-side action icon */
+.input-action-icon {
+    position: absolute;
+    right: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    pointer-events: none;
+}
+
+/* Text green utility */
+.text-green {
+    color: #10b981;
+}
+
+/* Field hint text */
+.field-hint {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 6px;
+    margin-left: 4px;
+}
+
+/* Java Path Display */
+.java-path-display {
+    margin-top: 8px;
+    font-size: 11px;
+    color: var(--text-muted);
+    font-family: 'JetBrains Mono', monospace;
+    background: rgba(0, 0, 0, 0.2);
+    padding: 6px 10px;
+    border-radius: var(--radius-sm);
+    display: inline-block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Java Status Card Scroll */
+.java-status-card .card-body {
+    max-height: 250px;
+    overflow-y: auto;
+    padding-right: 5px;
+}
+
+/* Custom Scrollbar */
+.java-status-card .card-body::-webkit-scrollbar {
+    width: 6px;
+}
+
+.java-status-card .card-body::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.1);
+    border-radius: 3px;
+}
+
+.java-status-card .card-body::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+}
+
+.java-status-card .card-body::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+/* Skip Checkbox Styling */
+.skip-check-container {
+    margin-top: 12px !important;
+    padding: 10px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+}
+
+.skip-check-container:hover {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+.skip-check-container input[type="checkbox"] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 18px;
+    height: 18px;
+    min-width: 18px;
+    /* Prevent shrinking */
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    cursor: pointer;
+    position: relative;
+    margin-right: 10px;
+    transition: all 0.2s ease;
+}
+
+.skip-check-container input[type="checkbox"]:checked {
+    background: var(--accent-blue);
+    border-color: var(--accent-blue);
+}
+
+.skip-check-container input[type="checkbox"]:checked::after {
+    content: '✓';
+    position: absolute;
+    color: white;
+    font-size: 12px;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-weight: bold;
+}
+
+.skip-check-container label {
+    cursor: pointer;
+    user-select: none;
+    color: var(--text-secondary) !important;
+    font-size: 13px !important;
 }

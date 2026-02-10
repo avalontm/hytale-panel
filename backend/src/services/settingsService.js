@@ -83,18 +83,27 @@ class SettingsService {
             detectedPath: detectedPath,
             defaultPath: defaultPath,
             javaVersion: javaInfo.version,
-            javaPath: javaInfo.path
+            javaPath: javaInfo.path,
+            debug: javaInfo.debugLogs // Include debug logs in response
         };
     }
 
     async checkJava() {
+        const debugLogs = [];
         try {
             const { exec } = await import('child_process');
             const { promisify } = await import('util');
             const execAsync = promisify(exec);
-            // fs is already imported at the top level
 
-            // Helper to parsing output
+            const log = (msg) => {
+                console.log(`[JavaDetect] ${msg}`);
+                debugLogs.push(msg);
+            };
+
+            log('Starting Java detection...');
+            log(`Platform: ${process.platform}, PATH: ${process.env.PATH}`);
+
+            // Helper to parse java version output
             const parseOutput = (out) => {
                 const lines = out.split(/\r?\n/);
                 const versionLine = lines.find(line => {
@@ -104,79 +113,126 @@ class SettingsService {
                 return versionLine ? versionLine.trim() : null;
             };
 
-            // 1. Try direct 'java' command (PATH)
-            try {
-                // On Linux, 'which java' gives the path
-                let detectedPath = 'java';
-                if (process.platform !== 'win32') {
-                    try {
-                        const { stdout } = await execAsync('which java');
-                        if (stdout.trim()) detectedPath = stdout.trim();
-                    } catch { }
-                }
+            // Helper to check a specific java binary
+            const checkBinary = async (binPath) => {
+                try {
+                    log(`Checking binary: ${binPath}`);
+                    // If absolute path, check existence. If just 'java', skip access check.
+                    if (path.isAbsolute(binPath)) {
+                        await fs.access(binPath);
+                    }
+                    const { stdout, stderr } = await execAsync(`"${binPath}" -version`);
+                    const output = (stdout + stderr).trim();
+                    log(`Output for ${binPath}: ${output.split('\n')[0]}...`);
 
-                console.log('[DEBUG] Trying "java -version"...');
-                const { stdout, stderr } = await execAsync(`"${detectedPath}" -version`);
-                const output = (stdout + stderr).trim();
-                const version = parseOutput(output);
-                if (version) return { version, path: detectedPath };
-            } catch (e) {
-                console.log('[DEBUG] "java -version" failed:', e.message);
+                    const version = parseOutput(output);
+                    if (version) {
+                        return { version, path: binPath };
+                    }
+                    log(`Failed to parse version for ${binPath}`);
+                } catch (e) {
+                    log(`Error checking ${binPath}: ${e.message}`);
+                }
+                return null;
+            };
+
+            // 0. Check JAVA_HOME environment variable
+            if (process.env.JAVA_HOME) {
+                log(`JAVA_HOME found: ${process.env.JAVA_HOME}`);
+                const javaHomeBin = path.join(process.env.JAVA_HOME, 'bin', process.platform === 'win32' ? 'java.exe' : 'java');
+                const result = await checkBinary(javaHomeBin);
+                if (result) {
+                    console.log('[DEBUG] Found Java via JAVA_HOME:', result);
+                    return { ...result, debugLogs };
+                }
+            } else {
+                log('JAVA_HOME not set');
             }
 
-            // 2. If Windows, we are done (or could check registry, but 'where java' usually works or it's not installed)
-            if (process.platform === 'win32') return { version: 'Not Found', path: '' };
+            // 1. Check system PATH using shell commands
+            const pathCommands = process.platform === 'win32'
+                ? ['where java']
+                : [
+                    'which java',
+                    'command -v java',
+                    'bash -l -c "which java"',           // Login shell
+                    'bash -i -c "which java"',           // Interactive shell (forces .bashrc)
+                    'bash -c "source ~/.bashrc && which java"', // Explicit source bashrc
+                    'bash -c "source ~/.bash_profile && which java"', // Explicit source bash_profile
+                    'bash -c "source ~/.sdkman/bin/sdkman-init.sh && which java"', // Explicitly load SDKMAN environment
+                    'bash -c "source /etc/profile && which java"' // System profile
+                ];
 
-            // 3. Linux/Mac: Try common paths
-            console.log('[DEBUG] Searching common paths...');
-            const commonPaths = [
-                '/usr/bin/java',
-                '/usr/local/bin/java',
-                '/bin/java',
-                '/opt/java/bin/java',
-                '/opt/jdk-25/bin/java' // Hytale recommended
-            ];
-
-            // Add finds in /usr/lib/jvm
-            try {
-                const jvmDir = '/usr/lib/jvm';
-                const entries = await fs.readdir(jvmDir).catch(() => []);
-                for (const entry of entries) {
-                    commonPaths.push(path.join(jvmDir, entry, 'bin/java'));
-                }
-            } catch (e) { }
-
-            // Add finds in /opt (looking for jdk* or java*)
-            try {
-                const optDir = '/opt';
-                const entries = await fs.readdir(optDir).catch(() => []);
-                for (const entry of entries) {
-                    if (entry.toLowerCase().includes('jdk') || entry.toLowerCase().includes('java')) {
-                        commonPaths.push(path.join(optDir, entry, 'bin/java'));
-                    }
-                }
-            } catch (e) { }
-
-            for (const javaPath of commonPaths) {
+            // Debug user context
+            if (process.platform !== 'win32') {
                 try {
-                    await fs.access(javaPath); // Check if exists
-                    const { stdout, stderr } = await execAsync(`"${javaPath}" -version`);
-                    const output = (stdout + stderr).trim();
-                    const version = parseOutput(output);
+                    const { stdout: who } = await execAsync('whoami');
+                    const { stdout: home } = await execAsync('echo $HOME');
+                    log(`User: ${who.trim()}, Home: ${home.trim()}`);
+                } catch (e) { }
+            }
 
-                    if (version) {
-                        console.log('[DEBUG] Found Java at:', javaPath);
-                        return { version, path: javaPath };
+            for (const cmd of pathCommands) {
+                try {
+                    log(`Running command: ${cmd}`);
+                    // For interactive shell, we might need to ignore stderr noise
+                    const { stdout } = await execAsync(cmd);
+
+                    // Filter out non-path lines (bash -i produces prompts/banner text)
+                    const lines = stdout.trim().split(/\r?\n/);
+                    let systemJavaPath = null;
+
+                    // Look for a line that looks like a path
+                    for (let i = lines.length - 1; i >= 0; i--) {
+                        const line = lines[i].trim();
+                        if (line && line.startsWith('/') && !line.includes(' ')) {
+                            systemJavaPath = line;
+                            break;
+                        }
+                    }
+
+                    if (systemJavaPath) log(`Parsed path: ${systemJavaPath}`);
+                    else log(`Could not parse path from: ${stdout.trim()}`);
+
+                    if (systemJavaPath && !systemJavaPath.toLowerCase().includes('not found')) {
+                        const result = await checkBinary(systemJavaPath);
+                        if (result) {
+                            console.log(`[DEBUG] Found Java via '${cmd}':`, result);
+                            return { ...result, debugLogs };
+                        }
                     }
                 } catch (e) {
-                    // Continue to next path
+                    log(`Command '${cmd}' failed: ${e.message}`);
                 }
             }
 
-            return { version: 'Not Found', path: '' };
+            // 1b. Try executing 'java' directly (relies on Node's inherited PATH)
+            const directResult = await checkBinary('java');
+            if (directResult) {
+                log('Direct "java" execution successful');
+                console.log('[DEBUG] Found Java via direct execution');
+                if (process.platform !== 'win32') {
+                    try {
+                        const { stdout } = await execAsync('readlink -f $(which java)');
+                        if (stdout.trim()) directResult.path = stdout.trim();
+                    } catch (e) { }
+                }
+                return { ...directResult, debugLogs };
+            }
+
+            log('All detection methods failed');
+            // (Removed hardcoded SDKMAN paths better to rely on bash -l or standard locations)
+
+            // 2. (Removed) Manual directory scanning
+            // User prefers to rely solely on system configuration (PATH / JAVA_HOME) determining the correct version.
+            // If it's not in PATH or JAVA_HOME, it is considered "Not Found" rather than guessing.
+
+            return { version: 'Not Found', path: '', debugLogs };
+
         } catch (error) {
             console.error('[DEBUG] Java detection critical error:', error);
-            return { version: 'Not Found', path: '' };
+            debugLogs.push(`Critical error: ${error.message}`);
+            return { version: 'Not Found', path: '', debugLogs };
         }
     }
 

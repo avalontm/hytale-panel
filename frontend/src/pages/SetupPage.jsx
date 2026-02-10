@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import {
     User, Lock, Mail, AlertCircle, ArrowRight, ArrowLeft,
     Settings, Server, Cpu, Globe, CheckCircle2, Loader2, Search,
-    Download, ExternalLink, Copy, Terminal
+    Download, ExternalLink, Copy, Terminal, RefreshCw, AlertTriangle, XCircle
 } from 'lucide-react';
 import './LoginPage.css';
 import './SetupPage.css';
@@ -14,6 +14,7 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 function SetupPage() {
     const [step, setStep] = useState(1);
     const [installMode, setInstallMode] = useState(null);
+    const [skipJavaCheck, setSkipJavaCheck] = useState(false); // New state for skipping java check
     const [formData, setFormData] = useState({
         user: '',
         password: '',
@@ -120,18 +121,19 @@ function SetupPage() {
         setDetection({ ...detection, loading: true });
         try {
             const response = await axios.get(`${API_URL}/auth/detect-system`);
-            const { os, detectedPath, defaultPath, javaVersion } = response.data;
+            const { os, detectedPath, defaultPath, javaVersion, javaPath } = response.data;
 
             setSettings(prev => ({
                 ...prev,
                 os,
                 serverPath: defaultPath || detectedPath || prev.serverPath
             }));
-            setDetection({ loading: false, results: { javaVersion, detectedPath } });
+            setDetection({ loading: false, results: { javaVersion, detectedPath, javaPath } });
         } catch (err) {
             setDetection({ loading: false, results: { error: 'Failed' } });
         }
     };
+
 
     const [prerequisites, setPrerequisites] = useState({
         checking: false,
@@ -156,6 +158,9 @@ function SetupPage() {
     useEffect(() => {
         if (step === 4 && installMode === 'auto') {
             checkPrerequisites();
+        }
+        if (step === 2) {
+            detectSystem();
         }
     }, [step, installMode]);
 
@@ -314,69 +319,87 @@ function SetupPage() {
                         <div className="login-form">
                             <div className="form-group">
                                 <label>Operating System</label>
-                                <select name="os" value={settings.os} onChange={handleSettingsChange}>
-                                    <option value="windows">Windows</option>
-                                    <option value="linux">Linux</option>
-                                    <option value="macos">macOS</option>
-                                </select>
+                                <div className="input-with-icon disabled-input">
+                                    <Cpu className="input-icon" size={18} />
+                                    <input
+                                        type="text"
+                                        value={settings.os ? settings.os.charAt(0).toUpperCase() + settings.os.slice(1) : 'Detecting...'}
+                                        readOnly
+                                        className="readonly-input"
+                                    />
+                                    {detection.loading && <Loader2 className="animate-spin input-action-icon" size={16} />}
+                                    {!detection.loading && settings.os && <CheckCircle2 className="text-green input-action-icon" size={16} />}
+                                </div>
+                                <p className="field-hint">Automatically detected from the host system.</p>
                             </div>
 
-                            <div className="java-status-card">
-                                <div className="card-header">
-                                    <Cpu size={20} className="text-blue" />
-                                    <h4>Java Runtime Status</h4>
-                                </div>
-                                <div className="card-body">
-                                    {!detection.results ? (
-                                        <button onClick={detectSystem} disabled={detection.loading} className="btn btn-secondary check-btn">
-                                            {detection.loading ? <Loader2 className="animate-spin" size={18} /> : <Search size={18} />}
-                                            Check Java Installation
+                            <div className="form-group">
+                                <div className="setting-item">
+                                    <label>Java Executable Path</label>
+                                    <div className="input-with-action">
+                                        <input
+                                            type="text"
+                                            name="javaPath"
+                                            value={settings.javaPath || detection.results?.javaPath || ''}
+                                            onChange={handleSettingsChange}
+                                            placeholder="/path/to/java"
+                                            disabled={skipJavaCheck}
+                                        />
+                                        <button
+                                            className="action-btn"
+                                            onClick={detectSystem}
+                                            disabled={detection.loading || skipJavaCheck}
+                                            title="Re-scan for Java"
+                                        >
+                                            <RefreshCw className={detection.loading ? 'spin' : ''} size={16} />
                                         </button>
-                                    ) : (
-                                        <div className="java-result-container">
-                                            <div className={`status-pill ${detection.results.javaVersion === 'Not Found' ? 'error' : 'success'}`}>
-                                                {detection.results.javaVersion === 'Not Found' ? <AlertCircle size={18} /> : <CheckCircle2 size={18} />}
-                                                <div>
-                                                    <strong>{detection.results.javaVersion === 'Not Found' ? 'Java Not Found' : 'Java Detected'}</strong>
-                                                    <p>{detection.results.javaVersion}</p>
-                                                </div>
-                                            </div>
+                                    </div>
 
-                                            {detection.results.javaVersion === 'Not Found' && (
-                                                <div className="java-instructions fade-in">
-                                                    <h5><Terminal size={16} /> How to install <strong>Java 25</strong>:</h5>
+                                    <div className="skip-check-container">
+                                        <input
+                                            type="checkbox"
+                                            id="skipJava"
+                                            checked={skipJavaCheck}
+                                            onChange={(e) => setSkipJavaCheck(e.target.checked)}
+                                        />
+                                        <label htmlFor="skipJava">
+                                            Skip Java validation (I will configure this later)
+                                        </label>
+                                    </div>
 
-                                                    {settings.os === 'windows' ? (
-                                                        <div className="instruction-steps">
-                                                            <p>1. Download the <strong>x64 Installer</strong> from <a href="https://www.oracle.com/java/technologies/downloads/#java25" target="_blank" rel="noopener">Oracle</a> or <a href="https://adoptium.net/temurin/releases/?version=25" target="_blank" rel="noopener">Adoptium</a>.</p>
-                                                            <p>2. Run the <code>.exe</code> and follow the installation wizard.</p>
-                                                            <p>3. Restart this panel (or the command prompt) so it detects the new <code>PATH</code>.</p>
-                                                        </div>
-                                                    ) : (
-                                                        <div className="instruction-steps">
-                                                            <p>Run these commands in your terminal:</p>
-                                                            <pre>
-                                                                <code>
-                                                                    {`# Download Java 25\nwget https://download.oracle.com/java/25/latest/jdk-25_linux-x64_bin.tar.gz\n\n# Extract and setup\nsudo mkdir -p /usr/lib/jvm\nsudo tar -xzf jdk-25_linux-x64_bin.tar.gz -C /usr/lib/jvm/\n\n# Update alternatives\nsudo update-alternatives --install "/usr/bin/java" "java" "/usr/lib/jvm/jdk-25/bin/java" 1`}
-                                                                </code>
-                                                            </pre>
-                                                        </div>
-                                                    )}
-                                                    <button onClick={detectSystem} className="btn-text-action">
-                                                        <Search size={14} /> Re-scan for Java
-                                                    </button>
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
+                                    <div className="java-version-display">
+                                        {skipJavaCheck ? (
+                                            <span className="version-tag warning">
+                                                <AlertTriangle size={14} /> Validation Skipped
+                                            </span>
+                                        ) : detection.results?.javaVersion ? (
+                                            <span className="version-tag success">
+                                                <CheckCircle2 size={14} /> Found: {detection.results.javaVersion}
+                                            </span>
+                                        ) : settings.javaPath ? (
+                                            <span className="version-tag warning">
+                                                <AlertTriangle size={14} /> Manual Override
+                                            </span>
+                                        ) : (
+                                            <span className="version-tag error">
+                                                <XCircle size={14} /> Java not found
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
+
+
 
                             <div className="multi-step-buttons">
                                 <button onClick={handleBack} className="btn btn-secondary">
                                     <ArrowLeft size={18} /> Back
                                 </button>
-                                <button onClick={handleNext} className="btn btn-primary" disabled={!detection.results || detection.results.javaVersion === 'Not Found'}>
+                                <button onClick={handleNext} className="btn btn-primary" disabled={
+                                    detection.loading ||
+                                    (!skipJavaCheck && !detection.results && !settings.javaPath) ||
+                                    (!skipJavaCheck && detection.results?.javaVersion === 'Not Found' && !settings.javaPath)
+                                }>
                                     Next Step <ArrowRight size={18} />
                                 </button>
                             </div>
