@@ -82,10 +82,15 @@ class PluginService {
     }
   }
 
-  async uploadPlugin(filename, buffer) {
+  async uploadPlugin(filename, source) {
     const modsPath = await this.getModsPath();
     const filePath = path.join(modsPath, filename);
-    await fs.writeFile(filePath, buffer);
+
+    if (Buffer.isBuffer(source)) {
+      await fs.writeFile(filePath, source);
+    } else {
+      await fs.copyFile(source, filePath);
+    }
 
     // Register as manual upload
     const registry = await this.getRegistry();

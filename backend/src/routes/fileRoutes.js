@@ -1,9 +1,23 @@
 import express from 'express';
 import multer from 'multer';
+import fs from 'fs/promises';
 import fileService from '../services/fileService.js';
 
+import config from '../config/config.js';
+import os from 'os';
+
 const router = express.Router();
-const upload = multer({ storage: multer.memoryStorage() });
+const upload = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => {
+      cb(null, os.tmpdir());
+    },
+    filename: (req, file, cb) => {
+      cb(null, `${Date.now()}-${file.originalname}`);
+    }
+  }),
+  limits: { fileSize: config.upload.maxFileSize }
+});
 
 // List files in directory
 router.get('/list', async (req, res) => {
@@ -79,7 +93,9 @@ router.post('/upload', upload.single('file'), async (req, res) => {
     if (!filePath || !req.file) {
       return res.status(400).json({ error: 'Path and file are required' });
     }
-    const result = await fileService.uploadFile(filePath, req.file.buffer);
+    const result = await fileService.uploadFile(filePath, req.file.path);
+    // Clean up temporary file
+    await fs.unlink(req.file.path).catch(console.error);
     res.json(result);
   } catch (error) {
     res.status(500).json({ error: error.message });

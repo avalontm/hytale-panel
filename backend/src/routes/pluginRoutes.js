@@ -2,8 +2,22 @@ import express from 'express';
 import multer from 'multer';
 import pluginService from '../services/pluginService.js';
 
+import config from '../config/config.js';
+import os from 'os';
+import fs from 'fs/promises';
+
 const router = express.Router();
-const upload = multer({ storage: multer.memoryStorage() });
+const upload = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => {
+      cb(null, os.tmpdir());
+    },
+    filename: (req, file, cb) => {
+      cb(null, `${Date.now()}-${file.originalname}`);
+    }
+  }),
+  limits: { fileSize: config.upload.maxFileSize }
+});
 
 // List all plugins
 router.get('/list', async (req, res) => {
@@ -24,8 +38,10 @@ router.post('/upload', upload.single('plugin'), async (req, res) => {
 
     const result = await pluginService.uploadPlugin(
       req.file.originalname,
-      req.file.buffer
+      req.file.path
     );
+    // Clean up temporary file
+    await fs.unlink(req.file.path).catch(console.error);
     res.json(result);
   } catch (error) {
     res.status(500).json({ error: error.message });

@@ -76,11 +76,17 @@ class FileService {
     return { success: true };
   }
 
-  async uploadFile(filePath, buffer) {
+  async uploadFile(filePath, source) {
     const fullPath = await this.resolvePath(filePath);
     const dirPath = path.dirname(fullPath);
     await fs.mkdir(dirPath, { recursive: true });
-    await fs.writeFile(fullPath, buffer);
+
+    if (Buffer.isBuffer(source)) {
+      await fs.writeFile(fullPath, source);
+    } else {
+      // Assume source is a path to a file (string)
+      await fs.copyFile(source, fullPath);
+    }
     return { success: true };
   }
 }

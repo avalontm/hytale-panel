@@ -39,7 +39,8 @@ app.use(cors({
   origin: allowedOrigins,
   credentials: true
 }));
-app.use(express.json());
+app.use(express.json({ limit: process.env.MAX_FILE_SIZE || '100MB' }));
+app.use(express.urlencoded({ extended: true, limit: process.env.MAX_FILE_SIZE || '100MB' }));
 
 // Routes
 app.use('/api/auth', authRoutes);
