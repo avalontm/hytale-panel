@@ -1,8 +1,8 @@
+import 'dotenv/config';
 import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import serverRoutes from './routes/serverRoutes.js';
 import fileRoutes from './routes/fileRoutes.js';
 import pluginRoutes from './routes/pluginRoutes.js';
@@ -13,10 +13,11 @@ import installerRoutes from './routes/installerRoutes.js';
 import playitRoutes from './routes/playitRoutes.js';
 import universeRoutes from './routes/universeRoutes.js';
 import playerRoutes from './routes/playerRoutes.js';
+import multer from 'multer';
 import { validateToken } from './middleware/authMiddleware.js';
 import { setupSocketHandlers } from './services/socketService.js';
 
-dotenv.config();
+
 
 const app = express();
 const httpServer = createServer(app);
@@ -63,6 +64,21 @@ app.get('/api/health', (req, res) => {
 
 // Socket.IO setup
 setupSocketHandlers(io);
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+  if (err instanceof multer.MulterError) {
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return res.status(400).json({
+        error: `File is too large. Max limit is ${process.env.MAX_FILE_SIZE || '100MB'}`
+      });
+    }
+    return res.status(400).json({ error: err.message });
+  }
+
+  console.error('[Error Handler]', err);
+  res.status(500).json({ error: 'Internal Server Error' });
+});
 
 const PORT = process.env.PORT || 3000;
 
