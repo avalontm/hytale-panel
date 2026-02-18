@@ -34,12 +34,28 @@ class FileService {
       console.log(`[FileService] Listing: ${dirPath}`);
       const items = await fs.readdir(dirPath, { withFileTypes: true });
 
-      return items.map(item => ({
-        name: item.name,
-        isDirectory: item.isDirectory(),
-        size: item.isDirectory() ? 0 : 0, // Could get valid size if needed
-        lastModified: new Date() // Placeholder, could use stat
+      const result = await Promise.all(items.map(async (item) => {
+        const itemPath = path.join(dirPath, item.name);
+        try {
+          const stats = await fs.stat(itemPath);
+          return {
+            name: item.name,
+            isDirectory: item.isDirectory(),
+            size: item.isDirectory() ? 0 : stats.size,
+            lastModified: stats.mtime
+          };
+        } catch (error) {
+          console.error(`[FileService] Error stating ${item.name}:`, error);
+          return {
+            name: item.name,
+            isDirectory: item.isDirectory(),
+            size: 0,
+            lastModified: new Date(0)
+          };
+        }
       }));
+
+      return result;
     } catch (error) {
       console.error('[FileService] List Error:', error);
       if (error.code === 'ENOENT') return []; // Directory doesn't exist?
@@ -87,6 +103,31 @@ class FileService {
       // Assume source is a path to a file (string)
       await fs.copyFile(source, fullPath);
     }
+    return { success: true };
+  }
+
+  async rename(oldPath, newPath) {
+    const source = await this.resolvePath(oldPath);
+    const destination = await this.resolvePath(newPath);
+    await fs.rename(source, destination);
+    return { success: true };
+  }
+
+  async move(sourcePath, destPath) {
+    const source = await this.resolvePath(sourcePath);
+    const destination = await this.resolvePath(destPath);
+    // Ensure parent directory exists
+    await fs.mkdir(path.dirname(destination), { recursive: true });
+    await fs.rename(source, destination);
+    return { success: true };
+  }
+
+  async copy(sourcePath, destPath) {
+    const source = await this.resolvePath(sourcePath);
+    const destination = await this.resolvePath(destPath);
+    // Ensure parent directory exists
+    await fs.mkdir(path.dirname(destination), { recursive: true });
+    await fs.cp(source, destination, { recursive: true });
     return { success: true };
   }
 }

@@ -54,4 +54,25 @@ router.post('/cancel', async (req, res) => {
     }
 });
 
+// Get game version
+router.get('/version', async (req, res) => {
+    try {
+        const settings = await settingsService.get();
+        const result = await installerService.getGameVersion(settings.serverPath);
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Check for updates
+router.get('/check-update', async (req, res) => {
+    try {
+        const result = await installerService.checkUpdate();
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 export default router;

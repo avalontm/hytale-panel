@@ -48,12 +48,12 @@ function Layout() {
       </div>
       <Footer />
 
-      {authData && status === 'online' && !stats.authFileExists && (
+      {(authData && status === 'online' && !stats.authFileExists) || (authData && authData.isInstaller) ? (
         <ServerAuthDialog
           authData={authData}
           onClose={() => setAuthData(null)}
         />
-      )}
+      ) : null}
     </div>
   );
 }

@@ -46,6 +46,14 @@ export const serverAPI = {
   sendCommand: (command) => api.post('/server/command', { command })
 };
 
+// Settings API
+export const settingsAPI = {
+  get: () => api.get('/settings'),
+  getPanel: () => api.get('/settings/panel'),
+  update: (data) => api.put('/settings', data),
+  updatePanel: (data) => api.put('/settings/panel', data)
+};
+
 // File API
 export const fileAPI = {
   list: (directory = '') => api.get('/files/list', { params: { directory } }),
@@ -61,7 +69,10 @@ export const fileAPI = {
       headers: { 'Content-Type': 'multipart/form-data' },
       onUploadProgress: onProgress
     });
-  }
+  },
+  rename: (oldPath, newPath) => api.post('/files/rename', { oldPath, newPath }),
+  move: (sourcePath, destinationPath) => api.post('/files/move', { sourcePath, destinationPath }),
+  copy: (sourcePath, destinationPath) => api.post('/files/copy', { sourcePath, destinationPath })
 };
 
 // Plugin API
@@ -87,6 +98,17 @@ export const playitAPI = {
   start: () => api.post('/playit/start'),
   stop: () => api.post('/playit/stop'),
   getUrl: () => api.get('/playit/url')
+};
+
+// Installer API
+export const installerAPI = {
+  getStatus: () => api.get('/installer/status'),
+  getPrerequisites: () => api.get('/installer/prerequisites'),
+  downloadTool: () => api.post('/installer/download-tool'),
+  start: (targetPath) => api.post('/installer/start', { targetPath }),
+  cancel: () => api.post('/installer/cancel'),
+  getVersion: () => api.get('/installer/version'),
+  checkUpdate: () => api.get('/installer/check-update')
 };
 
 // Universe API

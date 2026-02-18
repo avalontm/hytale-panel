@@ -1,5 +1,6 @@
 import serverService from './serverService.js';
 import hytaleConfigService from './hytaleConfigService.js';
+import installerService from './installerService.js';
 
 export function setupSocketHandlers(io) {
   io.on('connection', (socket) => {
@@ -49,6 +50,9 @@ export function setupSocketHandlers(io) {
     const authRequestHandler = (data) => {
       socket.emit('authRequest', data);
     };
+    const installerAuthHandler = (data) => {
+      socket.emit('authRequest', data);
+    };
 
     // Listen for start errors
     const startErrorHandler = (error) => {
@@ -61,6 +65,9 @@ export function setupSocketHandlers(io) {
     serverService.on('stats', statsHandler);
     serverService.on('authRequest', authRequestHandler);
     serverService.on('startError', startErrorHandler);
+
+    // Installer listeners
+    installerService.on('authRequest', installerAuthHandler);
 
     // Handle console commands from client
     socket.on('command', (command) => {
@@ -84,6 +91,8 @@ export function setupSocketHandlers(io) {
       serverService.off('stats', statsHandler);
       serverService.off('authRequest', authRequestHandler);
       serverService.off('startError', startErrorHandler);
+
+      installerService.off('authRequest', installerAuthHandler);
     });
   });
 }

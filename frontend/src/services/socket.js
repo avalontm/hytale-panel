@@ -1,6 +1,14 @@
 import { io } from 'socket.io-client';
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3000';
+// Determine the correct socket URL
+// If VITE_SOCKET_URL is defined and absolute, use it.
+// If it's relative ('/') or undefined, use the window origin (protocol + host + port).
+const envUrl = import.meta.env.VITE_SOCKET_URL;
+let SOCKET_URL = envUrl;
+
+if ((!envUrl || envUrl === '/') && typeof window !== 'undefined') {
+  SOCKET_URL = window.location.origin;
+}
 
 class SocketService {
   constructor() {
@@ -15,12 +23,19 @@ class SocketService {
 
     const token = localStorage.getItem('token');
 
-    this.socket = io(SOCKET_URL, {
-      auth: {
-        token: token
-      },
-      transports: ['websocket', 'polling']
-    });
+    try {
+      // If SOCKET_URL is undefined, it connects to window.location.host
+      // If it's a full URL, it connects there.
+      this.socket = io(SOCKET_URL, {
+        auth: {
+          token: token
+        },
+        // Remove specific transport forcing to allow polling -> upgrade (more robust)
+      });
+    } catch (err) {
+      console.error('Socket initialization failed:', err);
+      return;
+    }
 
     this.socket.on('connect', () => {
       console.log('Socket connected');

@@ -102,4 +102,46 @@ router.post('/upload', upload.single('file'), async (req, res) => {
   }
 });
 
+// Rename file or directory
+router.post('/rename', async (req, res) => {
+  try {
+    const { oldPath, newPath } = req.body;
+    if (!oldPath || !newPath) {
+      return res.status(400).json({ error: 'oldPath and newPath are required' });
+    }
+    const result = await fileService.rename(oldPath, newPath);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Move file or directory
+router.post('/move', async (req, res) => {
+  try {
+    const { sourcePath, destinationPath } = req.body;
+    if (!sourcePath || !destinationPath) {
+      return res.status(400).json({ error: 'sourcePath and destinationPath are required' });
+    }
+    const result = await fileService.move(sourcePath, destinationPath);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Copy file or directory
+router.post('/copy', async (req, res) => {
+  try {
+    const { sourcePath, destinationPath } = req.body;
+    if (!sourcePath || !destinationPath) {
+      return res.status(400).json({ error: 'sourcePath and destinationPath are required' });
+    }
+    const result = await fileService.copy(sourcePath, destinationPath);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 export default router;

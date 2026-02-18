@@ -1,28 +1,175 @@
-import { spawn } from 'child_process';
+import { spawn, exec } from 'child_process';
 import path from 'path';
 import fs from 'fs/promises';
 import { fileURLToPath } from 'url';
+import { promisify } from 'util';
+import { EventEmitter } from 'events';
+
+const execAsync = promisify(exec);
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const BIN_DIR = path.join(__dirname, '../../bin');
 
-class InstallerService {
+class InstallerService extends EventEmitter {
     constructor() {
+        super();
         this.currentProcess = null;
         this.status = {
             state: 'idle', // idle, downloading_tool, authenticating, downloading_game, finished, error
             deviceCode: null,
             verificationUrl: null,
+            detectedZip: null, // Track the zip name provided by the CLI
             progress: 0,
             error: null,
-            logs: []
+            logs: [],
+            debugLogs: [] // Internal diagnostics for the console
         };
         this.outputBuffer = '';
     }
 
+    addDebugLog(msg) {
+        const entry = `[${new Date().toLocaleTimeString()}] ${msg}`;
+        console.log(`[InstallerService] ${msg}`);
+        this.status.debugLogs.push(entry);
+        if (this.status.debugLogs.length > 200) this.status.debugLogs.shift();
+    }
+
     getStatus() {
         return this.status;
+    }
+
+    async getGameVersion(serverPath = null) {
+        // this.addDebugLog(`Iniciando getGameVersion (serverPath: ${serverPath})`);
+
+        if (serverPath) {
+            try {
+                const versionFile = path.join(serverPath, 'version.txt');
+                if (await fs.access(versionFile).then(() => true).catch(() => false)) {
+                    const content = await fs.readFile(versionFile, 'utf8');
+                    if (content.trim()) {
+                        // this.addDebugLog(`Versión desde archivo: ${content.trim()}`);
+                        return { version: content.trim() };
+                    }
+                }
+            } catch (e) {
+                // this.addDebugLog(`Error al leer version.txt: ${e.message}`);
+            }
+        }
+
+        // User requested NO FLAGS ever, and running naked triggers update.
+        // So we cannot check version via CLI without triggering update or using flags.
+        // We will rely purely on version.txt
+        return { version: 'Unknown (Install to see)' };
+    }
+
+    // checkUpdate removed as per user request (no flags).
+    // Updates are handled directly by running startDownload (naked binary).
+
+    async runDiagnosticCommand(binPath, args) {
+        return new Promise((resolve, reject) => {
+            const child = spawn(binPath, args);
+            let fullOutput = '';
+            let lastCleanResult = '';
+            let isAuthPending = false;
+            let lineBuffer = '';
+
+            const timer = setTimeout(() => {
+                if (!isAuthPending) {
+                    child.kill();
+                    this.addDebugLog('Diagnostic command timed out');
+                    resolve(lastCleanResult || 'Timed out');
+                }
+            }, 20000);
+
+            const handleData = (data) => {
+                const text = data.toString();
+                fullOutput += text;
+                lineBuffer += text;
+
+                const lines = lineBuffer.split(/\r?\n/);
+                lineBuffer = lines.pop(); // keep last fragment
+
+                for (const line of lines) {
+                    const clean = line.trim();
+                    if (!clean) continue;
+
+                    this.addDebugLog(`CLI: ${clean}`);
+
+                    // Parse auth
+                    const { url, code } = this.parseDeviceAuthOutput(clean);
+                    if (code && !isAuthPending) {
+                        isAuthPending = true;
+                        this.status.deviceCode = code;
+                        this.status.verificationUrl = url;
+                        this.status.state = 'authenticating';
+
+                        this.emit('authRequest', {
+                            verificationUrl: url,
+                            deviceCode: code,
+                            isInstaller: true
+                        });
+                    }
+
+                    // Success detection
+                    const isSuccess = clean.toLowerCase().includes('authentication successful') ||
+                        clean.toLowerCase().includes('authorized');
+
+                    if (isSuccess) {
+                        this.addDebugLog('Autenticación exitosa manual detectada.');
+                        this.emit('authRequest', { success: true });
+                        isAuthPending = false;
+                    }
+
+                    // Extract actual result (version or update info)
+                    // Skip lines that are instructions or auth info
+                    const isInstruction = clean.includes('hytale.com') ||
+                        clean.toLowerCase().includes('authenticate') ||
+                        clean.toLowerCase().includes('authorization code');
+
+                    if (!isInstruction) {
+                        // If it looks like a version or specific output, keep it
+                        if (clean.length > 0) {
+                            lastCleanResult = clean;
+
+                            // If we were waiting for auth and suddenly got a real result, auth succeeded
+                            if (isAuthPending && (/^\d{4}/.test(clean) || clean.toLowerCase().includes('update'))) {
+                                this.addDebugLog('Resultado obtenido tras auth. Emitiendo éxito.');
+                                this.emit('authRequest', { success: true });
+                                isAuthPending = false;
+                            }
+                        }
+                    }
+                }
+            };
+
+            child.stdout.on('data', handleData);
+            child.stderr.on('data', handleData);
+
+            child.on('close', (code) => {
+                clearTimeout(timer);
+
+                // Final flush of buffer
+                if (lineBuffer.trim() && !lineBuffer.includes('hytale.com')) {
+                    lastCleanResult = lineBuffer.trim();
+                }
+
+                // Reset auth status in service
+                this.status.deviceCode = null;
+                this.status.verificationUrl = null;
+                if (this.status.state === 'authenticating') {
+                    this.status.state = 'idle';
+                }
+
+                resolve(lastCleanResult || fullOutput.trim());
+            });
+
+            child.on('error', (err) => {
+                clearTimeout(timer);
+                this.status.state = 'idle';
+                reject(err);
+            });
+        });
     }
 
     async ensureBinDir() {
@@ -246,26 +393,10 @@ class InstallerService {
             return;
         }
 
-        // Usage: ./hytale-downloader -download-path game.zip -skip-update-check
-        const downloadPath = path.join(targetPath, 'game.zip');
+        // Usage: The user prefers running the binary directly without flags for the update
+        this.status.detectedZip = null;
 
-        // Check if game.zip already exists
-        try {
-            const stats = await fs.stat(downloadPath);
-            if (stats.size > 10000000) { // arbitrary 10MB check
-                console.log('[INSTALLER] Found existing game.zip, skipping download.');
-                this.status.logs.push('Found existing game.zip, skipping download...');
-                this.finalizeInstallation(targetPath);
-                return;
-            }
-        } catch (e) {
-            // File doesn't exist, proceed with download
-        }
-
-        this.currentProcess = spawn(binPath, [
-            '-download-path', downloadPath,
-            '-skip-update-check'
-        ], {
+        this.currentProcess = spawn(binPath, [], {
             cwd: targetPath,
             env: {
                 ...process.env,
@@ -279,16 +410,28 @@ class InstallerService {
         this.currentProcess.stdout.on('data', (data) => {
             const output = data.toString();
             this.outputBuffer += output;
-            this.status.logs.push(output);
-
+            // this.status.logs.push(output); // Suppress raw output
             console.log('[INSTALLER STDOUT]:', output);
 
             // Parse device authorization
             const { url, code } = this.parseDeviceAuthOutput(this.outputBuffer);
 
+            // Detect download filename
+            // Pattern: downloading latest ("release" patchline) to "2026.02.17-255364b8e.zip"
+            const zipMatch = output.match(/to\s+"([^"]+\.zip)"/i);
+            if (zipMatch && !this.status.detectedZip) {
+                this.status.detectedZip = zipMatch[1];
+                this.addDebugLog(`Archivo ZIP detectado: ${this.status.detectedZip}`);
+            }
+
             if (code && !this.status.deviceCode) {
                 this.status.deviceCode = code;
                 console.log('[INSTALLER] Device code detected:', code);
+                this.emit('authRequest', {
+                    verificationUrl: url,
+                    deviceCode: code,
+                    isInstaller: true
+                });
             }
 
             if (url && !this.status.verificationUrl) {
@@ -297,10 +440,28 @@ class InstallerService {
             }
 
             // Check for authentication success
+            const isDownloading = output.toLowerCase().includes('downloading') ||
+                output.toLowerCase().includes('download') ||
+                output.includes('%');
+
             if (output.toLowerCase().includes('authentication successful') ||
-                output.toLowerCase().includes('authorized')) {
+                output.toLowerCase().includes('authorized') ||
+                (isDownloading && this.status.state === 'authenticating')) {
+
+                this.addDebugLog('Instalador autenticado exitosamente.');
                 this.status.state = 'downloading_game';
-                console.log('[INSTALLER] Authentication successful, starting download');
+                this.emit('authRequest', { success: true });
+
+                // Clear codes
+                this.status.deviceCode = null;
+                this.status.verificationUrl = null;
+            }
+
+            // Check if already up to date
+            if (output.toLowerCase().includes('up to date')) {
+                this.addDebugLog('El servidor ya está actualizado.');
+                this.status.logs.push('Server is up to date.');
+                // We will handle the exit code 0 as success, but we should skip extraction if no zip was detected.
             }
 
             // Check for completion - wait for process to actually exit first to ensure file handles are closed
@@ -342,7 +503,7 @@ class InstallerService {
         // Handle stderr
         this.currentProcess.stderr.on('data', (data) => {
             const output = data.toString();
-            this.status.logs.push(`STDERR: ${output}`);
+            // this.status.logs.push(`STDERR: ${output}`); // Suppress raw stderr
             console.error('[INSTALLER STDERR]:', output);
 
             // Some CLIs output normal messages to stderr
@@ -391,7 +552,16 @@ class InstallerService {
         console.log('[INSTALLER] finalizeInstallation: Starting extraction...');
 
         try {
-            const downloadPath = path.join(targetPath, 'game.zip');
+            const zipName = this.status.detectedZip;
+
+            if (!zipName) {
+                this.status.logs.push('No new update file detected (Server likely up to date). Skipping extraction.');
+                this.status.state = 'finished';
+                this.status.progress = 100;
+                return;
+            }
+
+            const downloadPath = path.join(targetPath, zipName);
 
             // Verify file exists
             try {
@@ -491,6 +661,22 @@ class InstallerService {
                     this.status.logs.push('Propagated authentication credentials to server.');
                 } catch (e) {
                     // Credentials might not exist or copy failed, which is non-critical
+                }
+
+                // this.status.state = 'finished'; // Moved to end
+                // this.status.progress = 100; // Moved to end
+
+                // After success, save version.txt using the zip filename
+                // The zip filename is like "2026.02.17-255364b8e.zip"
+                try {
+                    const versionMatch = zipName.match(/(\d{4}\.\d{2}\.\d{2}-[a-f0-9]+)/);
+                    if (versionMatch) {
+                        const version = versionMatch[1];
+                        await fs.writeFile(path.join(targetPath, 'version.txt'), version);
+                        this.status.logs.push(`Updated version.txt to: ${version}`);
+                    }
+                } catch (vErr) {
+                    this.status.logs.push(`Failed to write version.txt: ${vErr.message}`);
                 }
 
                 this.status.state = 'finished';

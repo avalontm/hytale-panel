@@ -2,6 +2,7 @@ import { useState } from 'react';
 import PanelSettingsForm from '../components/settings/PanelSettingsForm';
 import ServerSettingsForm from '../components/settings/ServerSettingsForm';
 import JsonFileEditor from '../components/settings/JsonFileEditor';
+import ServerUpdateForm from '../components/settings/ServerUpdateForm';
 
 function SettingsPage() {
     const [activeTab, setActiveTab] = useState('panel');
@@ -25,6 +26,12 @@ function SettingsPage() {
                     Server Configuration
                 </button>
                 <button
+                    className={`tab-btn ${activeTab === 'update' ? 'active' : ''}`}
+                    onClick={() => setActiveTab('update')}
+                >
+                    Server Update
+                </button>
+                <button
                     className={`tab-btn ${activeTab === 'files' ? 'active' : ''}`}
                     onClick={() => setActiveTab('files')}
                 >
@@ -35,6 +42,7 @@ function SettingsPage() {
             <div className="tab-content" style={{ marginTop: '1rem' }}>
                 {activeTab === 'panel' && <PanelSettingsForm />}
                 {activeTab === 'server' && <ServerSettingsForm />}
+                {activeTab === 'update' && <ServerUpdateForm />}
                 {activeTab === 'files' && (
                     <div className="fade-in">
                         <div style={{ marginBottom: '1rem' }}>

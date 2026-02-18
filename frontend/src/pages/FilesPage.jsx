@@ -3,7 +3,8 @@ import { fileAPI } from '../services/api';
 import { useDialog } from '../contexts/DialogContext';
 import {
     Folder, File as FileIcon, ArrowLeft, RefreshCw,
-    Plus, Trash2, Upload, X, Save, FileText, ToggleLeft, ToggleRight, Layout
+    Plus, Trash2, Upload, X, Save, FileText, ToggleLeft, ToggleRight, Layout,
+    Edit2, Copy, Move, ClipboardPaste
 } from 'lucide-react';
 import JsonFormEditor from '../components/common/JsonFormEditor';
 import '../styles/global.css';
@@ -31,6 +32,9 @@ function FilesPage() {
     const [visualMode, setVisualMode] = useState(false);
     const [parsedJson, setParsedJson] = useState(null);
     const [saving, setSaving] = useState(false);
+
+    // Clipboard State
+    const [clipboard, setClipboard] = useState(null); // { path, name, type: 'copy' | 'move' }
 
     const loadFiles = useCallback(async (path) => {
         setLoading(true);
@@ -104,6 +108,45 @@ function FilesPage() {
             loadFiles(currentPath);
         } catch (err) {
             dialog.showAlert("Failed to delete: " + (err.response?.data?.error || err.message), "Error");
+        }
+    };
+
+    const handleRename = async (fileName) => {
+        const newName = await dialog.showPrompt("Enter new name:", fileName, "Rename");
+        if (!newName || newName === fileName) return;
+        try {
+            const oldPath = currentPath ? `${currentPath}/${fileName}` : fileName;
+            const newPath = currentPath ? `${currentPath}/${newName}` : newName;
+            await fileAPI.rename(oldPath, newPath);
+            loadFiles(currentPath);
+        } catch (err) {
+            dialog.showAlert("Failed to rename: " + (err.response?.data?.error || err.message), "Error");
+        }
+    };
+
+    const handleCopy = (file) => {
+        const path = currentPath ? `${currentPath}/${file.name}` : file.name;
+        setClipboard({ path, name: file.name, type: 'copy' });
+    };
+
+    const handleMove = (file) => {
+        const path = currentPath ? `${currentPath}/${file.name}` : file.name;
+        setClipboard({ path, name: file.name, type: 'move' });
+    };
+
+    const handlePaste = async () => {
+        if (!clipboard) return;
+        try {
+            const destPath = currentPath ? `${currentPath}/${clipboard.name}` : clipboard.name;
+            if (clipboard.type === 'copy') {
+                await fileAPI.copy(clipboard.path, destPath);
+            } else {
+                await fileAPI.move(clipboard.path, destPath);
+            }
+            setClipboard(null);
+            loadFiles(currentPath);
+        } catch (err) {
+            dialog.showAlert("Failed to paste: " + (err.response?.data?.error || err.message), "Error");
         }
     };
 
@@ -253,6 +296,14 @@ function FilesPage() {
         loadFiles(currentPath);
     };
 
+    const formatSize = (bytes) => {
+        if (bytes === 0) return '0 B';
+        const k = 1024;
+        const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    };
+
     return (
         <div className="fade-in" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
             {/* Header / Toolbar */}
@@ -303,6 +354,11 @@ function FilesPage() {
                         </button>
                     )}
                     <div style={{ width: '1px', background: 'var(--border-color)', margin: '0 8px' }}></div>
+                    {clipboard && (
+                        <button onClick={handlePaste} className="btn btn-primary" title={`Paste ${clipboard.name}`}>
+                            <ClipboardPaste size={18} style={{ marginRight: '5px' }} /> Paste
+                        </button>
+                    )}
                     <button onClick={handleCreateFolder} className="btn btn-secondary">
                         <Plus size={18} style={{ marginRight: '5px' }} /> Folder
                     </button>
@@ -332,20 +388,19 @@ function FilesPage() {
                 onDrop={onDrop}
             >
                 {/* Columns Header */}
-                <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: '40px 1fr 100px',
-                    gap: '1rem',
+                <div className="file-manager-grid" style={{
                     padding: '12px 20px',
                     borderBottom: '1px solid var(--border-color)',
                     background: 'var(--bg-tertiary)',
                     fontWeight: 600,
                     color: 'var(--text-secondary)',
-                    fontSize: '13px',
+                    fontSize: '11px',
+                    letterSpacing: '0.05em',
                     textTransform: 'uppercase'
                 }}>
                     <span>Type</span>
                     <span>Name</span>
+                    <span style={{ textAlign: 'right' }}>Size</span>
                     <span style={{ textAlign: 'right' }}>Actions</span>
                 </div>
 
@@ -413,33 +468,52 @@ function FilesPage() {
                         files.map((file) => (
                             <div
                                 key={file.name}
-                                className="file-row"
+                                className="file-row file-manager-grid"
                                 style={{
-                                    display: 'grid',
-                                    gridTemplateColumns: '40px 1fr 100px',
-                                    gap: '1rem',
                                     padding: '12px 20px',
-                                    borderBottom: '1px solid var(--border-color)',
                                     alignItems: 'center',
-                                    cursor: 'pointer',
-                                    transition: 'background 0.2s'
+                                    cursor: 'pointer'
                                 }}
                                 onClick={() => file.isDirectory ? handleNavigate(file.name) : handleEditFile(file.name)}
-                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-hover)'}
-                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                             >
                                 <div style={{ color: file.isDirectory ? 'var(--accent-gold)' : 'var(--text-highlight)', display: 'flex', alignItems: 'center' }}>
                                     {file.isDirectory ? <Folder size={20} /> : <FileIcon size={20} />}
                                 </div>
-                                <div style={{ fontWeight: 500 }}>
+                                <div style={{ fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                     {file.name}
                                 </div>
-                                <div style={{ textAlign: 'right' }} onClick={(e) => e.stopPropagation()}>
+                                <div style={{ textAlign: 'right', color: 'var(--text-secondary)', fontSize: '13px', fontFamily: 'monospace' }}>
+                                    {file.isDirectory ? '-' : formatSize(file.size)}
+                                </div>
+                                <div style={{ textAlign: 'right', display: 'flex', justifyContent: 'flex-end', gap: '4px' }} onClick={(e) => e.stopPropagation()}>
+                                    <button
+                                        className="btn-icon"
+                                        onClick={() => handleRename(file.name)}
+                                        title="Rename"
+                                        style={{ '--hover-color': 'var(--accent-blue)' }}
+                                    >
+                                        <Edit2 size={16} />
+                                    </button>
+                                    <button
+                                        className="btn-icon"
+                                        onClick={() => handleCopy(file)}
+                                        title="Copy"
+                                        style={{ '--hover-color': 'var(--accent-gold)' }}
+                                    >
+                                        <Copy size={16} />
+                                    </button>
+                                    <button
+                                        className="btn-icon"
+                                        onClick={() => handleMove(file)}
+                                        title="Move"
+                                        style={{ '--hover-color': 'var(--accent-green)' }}
+                                    >
+                                        <Move size={16} />
+                                    </button>
                                     <button
                                         className="btn-icon danger"
                                         onClick={() => handleDelete(file.name)}
                                         title="Delete"
-                                        style={{ padding: '4px', color: '#ef4444', background: 'transparent', border: 'none', cursor: 'pointer' }}
                                     >
                                         <Trash2 size={16} />
                                     </button>

@@ -1,4 +1,4 @@
-export const PANEL_VERSION = '1.2.0-Alpha';
+export const PANEL_VERSION = '1.2.1-Alpha';
 export const PANEL_NAME = 'Hytale Panel';
 export const DEVELOPER_NAME = 'AvalonTM';
 export const GITHUB_URL = 'https://github.com/avalontm';

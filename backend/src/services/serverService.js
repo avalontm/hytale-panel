@@ -87,7 +87,14 @@ class ServerService extends EventEmitter {
       }
 
       this.status = 'starting';
+      // Reset stats for new start
+      this.stats.players.online = 0;
+      this.stats.cpu = 0;
+      this.stats.memory = 0;
+      this.stats.uptime = 0;
+
       this.emit('statusChange', 'starting');
+      this.emit('stats', { ...this.stats });
 
       const startCommand = settings.startCommand.split(' ');
       // Use configured java path if available and valid, otherwise fallback to the first part of startCommand
@@ -291,10 +298,18 @@ class ServerService extends EventEmitter {
         this.process = null;
         this.pid = null;
         this.startTime = null;
+        // Thorough reset of stats
+        this.stats.players.online = 0;
+        this.stats.cpu = 0;
+        this.stats.memory = 0;
+        this.stats.uptime = 0;
+
         try {
           await fs.unlink(path.resolve('data/server.pid')).catch(() => { });
         } catch (e) { }
         this.emit('statusChange', 'offline');
+        this.emit('stats', { ...this.stats });
+
         if (this.statsInterval) {
           clearInterval(this.statsInterval);
           this.statsInterval = null;
@@ -391,6 +406,31 @@ class ServerService extends EventEmitter {
           }
         }
 
+        // Check if process is still alive before usage
+        try {
+          process.kill(targetPid, 0);
+        } catch (e) {
+          // Process is gone
+          console.log(`[ServerService] Process ${targetPid} detected as DEAD during stats collection`);
+          if (this.status !== 'offline') {
+            this.status = 'offline';
+            this.process = null;
+            this.pid = null;
+            this.startTime = null;
+            this.stats.players.online = 0;
+            this.stats.cpu = 0;
+            this.stats.memory = 0;
+            this.stats.uptime = 0;
+            this.emit('statusChange', 'offline');
+            this.emit('stats', { ...this.stats });
+            if (this.statsInterval) {
+              clearInterval(this.statsInterval);
+              this.statsInterval = null;
+            }
+          }
+          return;
+        }
+
         const usage = await pidusage(targetPid).catch(() => ({ cpu: 0, memory: 0 }));
 
         const uptimeMs = Date.now() - this.startTime;
@@ -412,7 +452,8 @@ class ServerService extends EventEmitter {
 
         this.emit('stats', { ...this.stats });
       } catch (error) {
-        // Silently handle errors
+        // Silently handle errors, but stop collecting if it's a critical failure
+        console.error('[ServerService] Stats collection error:', error.message);
       }
     }, 2000);
   }

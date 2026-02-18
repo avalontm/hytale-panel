@@ -15,9 +15,9 @@ class SettingsService {
             os: process.platform === 'win32' ? 'windows' : (process.platform === 'darwin' ? 'macos' : 'linux'),
             serverPath: '',
             javaPath: 'java',
-            jarFile: 'HytaleServer.jar',
+            jarFile: 'Server/HytaleServer.jar',
             assetsFile: 'Assets.zip',
-            startCommand: 'java -XX:AOTCache=HytaleServer.aot -Xmx2G -Xms1G -jar HytaleServer.jar --assets Assets.zip',
+            startCommand: 'java -XX:AOTCache=Server/HytaleServer.aot -Xmx2G -Xms1G -jar Server/HytaleServer.jar --assets Assets.zip',
             maxMemory: '2G',
             minMemory: '1G',
             port: 5520, // Manual default

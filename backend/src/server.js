@@ -1,6 +1,8 @@
 import 'dotenv/config';
 import express from 'express';
 import { createServer } from 'http';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { Server } from 'socket.io';
 import cors from 'cors';
 import serverRoutes from './routes/serverRoutes.js';
@@ -17,6 +19,9 @@ import multer from 'multer';
 import { validateToken } from './middleware/authMiddleware.js';
 import { setupSocketHandlers } from './services/socketService.js';
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 
 
 const app = express();
@@ -27,19 +32,55 @@ const allowedOrigins = (process.env.ALLOWED_ORIGINS || process.env.FRONTEND_URL 
   .map(origin => origin.trim())
   .filter(Boolean);
 
-const io = new Server(httpServer, {
-  cors: {
-    origin: allowedOrigins,
-    methods: ['GET', 'POST'],
-    credentials: true
+const isLocalNetwork = (origin) => {
+  if (!origin) return false;
+  try {
+    const url = new URL(origin);
+    const hostname = url.hostname;
+
+    // Check for localhost/127.0.0.1
+    if (hostname === 'localhost' || hostname === '127.0.0.1') return true;
+
+    // Check for 192.168.x.x
+    if (hostname.startsWith('192.168.')) return true;
+
+    // Check for 10.x.x.x
+    if (hostname.startsWith('10.')) return true;
+
+    // Check for 172.16-31.x.x
+    if (hostname.startsWith('172.')) {
+      const parts = hostname.split('.');
+      if (parts.length >= 2) {
+        const secondPart = parseInt(parts[1], 10);
+        return secondPart >= 16 && secondPart <= 31;
+      }
+    }
+
+    return false;
+  } catch (e) {
+    return false;
   }
+};
+
+const corsOptions = {
+  origin: (origin, callback) => {
+    // Allow if it's in allowedOrigins, if it's local network, or if it's undefined (like postman or same-origin)
+    if (!origin || allowedOrigins.includes(origin) || isLocalNetwork(origin)) {
+      callback(null, true);
+    } else {
+      console.warn(`[CORS] Rejected origin: ${origin}`);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true
+};
+
+const io = new Server(httpServer, {
+  cors: corsOptions
 });
 
 // Middleware
-app.use(cors({
-  origin: allowedOrigins,
-  credentials: true
-}));
+app.use(cors(corsOptions));
 app.use(express.json({ limit: process.env.MAX_FILE_SIZE || '100MB' }));
 app.use(express.urlencoded({ extended: true, limit: process.env.MAX_FILE_SIZE || '100MB' }));
 

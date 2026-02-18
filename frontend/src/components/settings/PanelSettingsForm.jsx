@@ -55,7 +55,7 @@ function PanelSettingsForm() {
         setSuccess(null);
         try {
             // Compute the start command to ensure it matches the preview
-            const aotPart = (settings.aotCacheFile || 'HytaleServer.aot') ? `-XX:AOTCache=${settings.aotCacheFile || 'HytaleServer.aot'} ` : '';
+            const aotPart = (settings.aotCacheFile && settings.aotCacheFile.trim()) ? `-XX:AOTCache=${settings.aotCacheFile.trim()} ` : '';
             // Use javaPath for preview if available, else 'java'
             const javaCmd = (settings.javaPath && settings.javaPath.trim()) ? settings.javaPath.trim() : 'java';
 
@@ -91,7 +91,7 @@ function PanelSettingsForm() {
 
     // Use javaPath for preview if available
     const javaCmdDisplay = (settings.javaPath && settings.javaPath.trim()) ? settings.javaPath.trim() : 'java';
-    const aotPartDisplay = (settings.aotCacheFile || 'HytaleServer.aot') ? `-XX:AOTCache=${settings.aotCacheFile || 'HytaleServer.aot'} ` : '';
+    const aotPartDisplay = (settings.aotCacheFile && settings.aotCacheFile.trim()) ? `-XX:AOTCache=${settings.aotCacheFile.trim()} ` : '';
 
     return (
         <div className="card">
@@ -192,7 +192,7 @@ function PanelSettingsForm() {
                                 value={settings.jarFile}
                                 onChange={handleChange}
                                 className="input-field"
-                                placeholder="HytaleServer.jar"
+                                placeholder="Server/HytaleServer.jar"
                             />
                         </div>
                         <div>
@@ -211,10 +211,10 @@ function PanelSettingsForm() {
                             <input
                                 type="text"
                                 name="aotCacheFile"
-                                value={settings.aotCacheFile || 'HytaleServer.aot'}
+                                value={settings.aotCacheFile !== undefined ? settings.aotCacheFile : 'Server/HytaleServer.aot'}
                                 onChange={handleChange}
                                 className="input-field"
-                                placeholder="HytaleServer.aot"
+                                placeholder="Server/HytaleServer.aot (Leave empty to disable)"
                             />
                         </div>
                     </div>
